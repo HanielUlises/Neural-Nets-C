@@ -5,6 +5,12 @@ double single_in_single_out (double input, double weight){
     return(input * weight);
 }
 
+double multiple_in_single_out(double* input, double* weight, int length){
+    double predicted_value;
+
+    predicted_value = weighted_sum(input, weight, length);
+}
+
 double weighted_sum (double* input, double* weight, int length){
     double output;
 
