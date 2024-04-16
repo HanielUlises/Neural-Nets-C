@@ -61,6 +61,9 @@ void test_simo_nn(){
     printf("Predicted air quality is: %f \r\n", predicted_results[2]);
 }
 
+void test_mimo_nn (){
+    
+}
 int main (){
     printf("====================================================\r\n");
     test_siso_nn();
