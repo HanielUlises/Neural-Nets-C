@@ -30,3 +30,7 @@ void element_wise_multiply (double input_scalar, double* weight_vector, double* 
 void single_in_multiple_out (double scalar, double* w_vect, double* out_vect, int length){
     element_wise_multiply(scalar, w_vect, out_vect, length);
 }
+
+void multiple_in_multiple_out(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double weight_matrix[INPUT_LEN][OUTPUT_LEN]){
+
+}
