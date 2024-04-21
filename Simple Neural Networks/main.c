@@ -2,9 +2,6 @@
 
 #include "simple_nn.h"
 
-#define NUM_FEATURES 3
-#define OUTPUTS 3
-
 /*
     Problem is to determine whether a person is sad or not based on 
     the ambience
@@ -20,7 +17,7 @@ void test_siso_nn (){
 
     printf("Predicted values: \n");
     for(size_t i = 0; i < vec_size; i++){
-        printf("Current predicted value %zu: %f\n", i, single_in_single_out(temperature[i], weight));
+        printf("Current predicted value %zu: %f\n", i+1, single_in_single_out(temperature[i], weight));
     }
 }
 
@@ -78,7 +75,7 @@ void test_mimo_nn (){
 
     printf("Predicted values of multiple input, multiple output NN\n");
     for(size_t i = 0; i < size; i++){
-        printf("%f", predicted_results[i]);
+        printf("%d %f\n",i+1, predicted_results[i]);
     }
 }
 int main (){

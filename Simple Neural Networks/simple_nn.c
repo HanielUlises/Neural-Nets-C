@@ -29,7 +29,7 @@ void single_in_multiple_out(double scalar, double* w_vect, double* out_vect, int
     element_wise_multiply(scalar, w_vect, out_vect, length);
 }
 
-void multiple_in_multiple_out(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double **weight_matrix) {
+void multiple_in_multiple_out(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double weight_matrix[][OUTPUTS]) {
     for (int i = 0; i < OUTPUT_LEN; i++) {
         output_vector[i] = 0;
         for (int j = 0; j < INPUT_LEN; j++) {
@@ -38,6 +38,6 @@ void multiple_in_multiple_out(double *input_vector, int INPUT_LEN, double *outpu
     }
 }
 
-void matrix_vector_multiply(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double **weight_matrix) {
+void matrix_vector_multiply(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double weight_matrix[][OUTPUTS]) {
     multiple_in_multiple_out(input_vector, INPUT_LEN, output_vector, OUTPUT_LEN, weight_matrix);
 }
