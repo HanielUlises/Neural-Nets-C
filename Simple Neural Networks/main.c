@@ -3,6 +3,7 @@
 #include "simple_nn.h"
 
 #define NUM_FEATURES 3
+#define OUTPUTS 3
 
 /*
     Problem is to determine whether a person is sad or not based on 
@@ -52,7 +53,7 @@ void test_simo_nn(){
     double weights [3] = {-20, 95, 201};
     double predicted_results[3];
 
-    int size = sizeof(weights)/sizeof(double);
+    size_t size = sizeof(weights)/sizeof(double);
 
     single_in_multiple_out(Sad, weights, predicted_results, size);
 
@@ -62,7 +63,23 @@ void test_simo_nn(){
 }
 
 void test_mimo_nn (){
-    
+    double predicted_results[3];
+
+    size_t size = sizeof(predicted_results)/sizeof(double);
+
+    double weights[NUM_FEATURES][OUTPUTS] = 
+        {{-2, 9.5, 2.01},
+         {-0.8, 7.2, 6.3},
+         {-0.5, 0.45, 0.9}};
+
+    double inputs[NUM_FEATURES] = {30, 87, 100};
+
+    multiple_in_multiple_out(inputs, NUM_FEATURES,predicted_results, OUTPUTS, weights);
+
+    printf("Predicted values of multiple input, multiple output NN\n");
+    for(size_t i = 0; i < size; i++){
+        printf("%f", predicted_results[i]);
+    }
 }
 int main (){
     printf("====================================================\r\n");
