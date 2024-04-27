@@ -78,6 +78,21 @@ void test_mimo_nn (){
         printf("%d %f\n",i+1, predicted_results[i]);
     }
 }
+
+void test_hidden_layer_nn (){
+    double predicted_results[3];
+    // Vector from input to the actual hidden layer
+    double input_to_hidden[HIDDEN_SIZE][INPUT_SIZE] = 
+                                                        {{-2, 9.5, 2.01},
+                                                         {-0.8,7.2, 6.3},
+                                                         {-0.5, 0.45, 0.9}};
+    // Vector from hidden layer to the output vector
+    double hidden_to_output[OUTPUT_SIZE][HIDDEN_SIZE] =
+                                                        {{-1.0, 1.15, 0.11},
+                                                         {-0.18, 0.15, -0.01},
+                                                         {0.25, -0.25, -0.1}};
+}
+
 int main (){
     printf("====================================================\r\n");
     test_siso_nn();
