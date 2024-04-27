@@ -81,6 +81,7 @@ void test_mimo_nn (){
 
 void test_hidden_layer_nn (){
     double predicted_results[3];
+    size_t predict_size = sizeof(predicted_results)/sizeof(double);
     // Vector from input to the actual hidden layer
     double input_to_hidden[HIDDEN_SIZE][INPUT_SIZE] = 
                                                         {{-2, 9.5, 2.01},
@@ -91,6 +92,13 @@ void test_hidden_layer_nn (){
                                                         {{-1.0, 1.15, 0.11},
                                                          {-0.18, 0.15, -0.01},
                                                          {0.25, -0.25, -0.1}};
+    double inputs[INPUT_SIZE] = {30, 82, 110};
+    hidden_layer_nn(inputs, input_to_hidden, hidden_to_output, predicted_results);
+
+    printf("Predicted results:   \n");
+    for(size_t i = 0; i < predict_size; i++){
+        printf("%f", predicted_results[i]);
+    }
 }
 
 int main (){
