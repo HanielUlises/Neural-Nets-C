@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #include "simple_nn.h"
 
 #define SAD_IDX     0
