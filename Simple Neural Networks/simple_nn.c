@@ -47,3 +47,11 @@ void element_wise_multiply(double input_scalar, double* weight_vector, double* o
         output_vector[i] = input_scalar * weight_vector[i];
     }
 }
+
+double finding_error(double input, double weight, double expected_value){
+    return pow(((input *weight) - expected_value), 2);
+}
+
+double find_error_simple(double yhat, double y){
+    return pow((yhat - y), 2);
+}

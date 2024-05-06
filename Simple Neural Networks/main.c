@@ -2,6 +2,10 @@
 
 #include "simple_nn.h"
 
+#define SAD_IDX     0
+#define SICK_IDX    1
+#define ACTIVE_IDX  2
+
 /*
     Problem is to determine whether a person is sad or not based on 
     the ambience
@@ -99,6 +103,11 @@ void test_hidden_layer_nn (){
     for(size_t i = 0; i < predict_size; i++){
         printf("%f", predicted_results[i]);
     }
+
+    double expected_values [OUTPUT_SIZE] = {30, 87, 110};
+    printf("Sad error: %f", find_error_simple(predicted_results[SAD_IDX], expected_values[SAD_IDX]));
+    printf("Sick error: %f", find_error_simple(predicted_results[SICK_IDX], expected_values[SICK_IDX]));
+    printf("Active error: %f", find_error_simple(predicted_results[ACTIVE_IDX], expected_values[ACTIVE_IDX]));
 }
 
 int main (){
@@ -110,5 +119,8 @@ int main (){
     test_miso_nn();
     printf("====================================================\r\n");
     test_mimo_nn();
+    printf("====================================================\r\n");
+    printf("Hidden layer neural network\n");
+    test_hidden_layer_nn();
     return 0;
 }
