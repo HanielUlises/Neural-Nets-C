@@ -2,6 +2,8 @@
 #define SIMPLE_NN_H
 
 #include <stdlib.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #define NUM_FEATURES 3
 #define OUTPUTS 3
@@ -29,5 +31,6 @@ void element_wise_multiply(double input_scalar, double *weight_vector, double *o
 void matrix_vector_multiplication(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double weight_matrix[][OUTPUTS]);
 double find_error(double input, double weight, double expected_value);
 double find_error_simple(double yhat, double y);
+void bruteforce_learning(double input, double weight, double expected_values, double step_amount, uint32_t itr);
 
 #endif

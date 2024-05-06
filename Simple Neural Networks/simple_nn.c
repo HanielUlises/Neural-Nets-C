@@ -1,5 +1,5 @@
 #include "simple_nn.h"
-#include <stddef.h>
+
 
 double single_in_single_out(double input, double weight) {
     return input * weight;
@@ -48,10 +48,34 @@ void element_wise_multiply(double input_scalar, double* weight_vector, double* o
     }
 }
 
-double finding_error(double input, double weight, double expected_value){
+double find_error(double input, double weight, double expected_value){
     return pow(((input *weight) - expected_value), 2);
 }
 
 double find_error_simple(double yhat, double y){
     return pow((yhat - y), 2);
+}
+
+void bruteforce_learning(double input, double weight, double expected_values, double step_amount, uint32_t itr){
+    double prediction, error;
+    double up_prediction, up_error;
+    double down_prediction, down_error;
+
+    for(int i = 0; i < itr; i++){
+        prediction = input * weight;
+        error = pow((prediction - expected_values), 2);
+        printf("Error: %f Prediction: %f \r\n", error, prediction);
+
+        up_prediction = input * (weight + step_amount);
+        up_error = pow((expected_values - up_prediction), 2);
+
+        down_prediction = input * (weight - step_amount);
+        down_error = pow((expected_values - down_prediction), 2);
+
+        if(down_error < up_error){
+            weight = weight - step_amount;
+        }else if (down_error > up_error){
+            weight = weight + step_amount;
+        }
+    }
 }

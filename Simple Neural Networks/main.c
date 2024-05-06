@@ -110,7 +110,17 @@ void test_hidden_layer_nn (){
     printf("Active error: %f", find_error_simple(predicted_results[ACTIVE_IDX], expected_values[ACTIVE_IDX]));
 }
 
+void test_brute_force(){
+    double input = 0.5;
+    double weight = 0.5;
+    double expected_value = 0.8;
+    double step_amount = 0.001;
+
+    bruteforce_learning(input, weight, expected_value, step_amount, 800);
+}
+
 int main (){
+    /*
     printf("====================================================\r\n");
     test_siso_nn();
     printf("====================================================\r\n");
@@ -122,5 +132,9 @@ int main (){
     printf("====================================================\r\n");
     printf("Hidden layer neural network\n");
     test_hidden_layer_nn();
+    */
+
+    test_brute_force();
+    
     return 0;
 }
