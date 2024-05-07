@@ -1,6 +1,5 @@
 #include "simple_nn.h"
 
-
 double single_in_single_out(double input, double weight) {
     return input * weight;
 }
@@ -76,6 +75,37 @@ void bruteforce_learning(double input, double weight, double expected_values, do
             weight = weight - step_amount;
         }else if (down_error > up_error){
             weight = weight + step_amount;
+        }
+    }
+}
+
+void normalize_data (double *input_vector, double *output_vector, int LEN){
+    // Find maximum value
+    size_t i = 0;
+    double max = input_vector[0];
+
+    for(i = 0; i < LEN; i++){
+        if(input_vector[i] > max){
+            max = input_vector[i];
+        }
+    }
+
+    // Data normalization
+    for(i = 0; i < LEN; i++){
+        output_vector[i] = input_vector[i] / max;
+    }
+}
+
+void random_weight_initialization(int HIDDEN_LENGTH, int INPUT_LENGTH, double **weights_matrix){
+    srand(2);
+    double d_rand;
+    
+    for(size_t i = 0; i < HIDDEN_LENGTH; i++){
+        for(size_t j = 0; j < INPUT_LENGTH; j++){
+            d_rand = (rand() % 10);
+            d_rand = d_rand / 10;
+
+            weights_matrix[i][j] = d_rand;
         }
     }
 }
