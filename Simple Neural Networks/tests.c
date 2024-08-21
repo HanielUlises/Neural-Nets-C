@@ -114,7 +114,6 @@ void forward_propagation() {
 
     double raw_y_data[1][NUM_EXAMPLES] = {{200, 90, 190}};
 
-    // Allocate memory for the matrices
     double **raw_x = malloc(NUM_FEATURES * sizeof(double *));
     double **raw_y = malloc(1 * sizeof(double *));
     double **train_x = malloc(NUM_FEATURES * sizeof(double *));
