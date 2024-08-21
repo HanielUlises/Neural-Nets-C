@@ -6,13 +6,19 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <math.h>
+#include <float.h>
 
 #define NUM_FEATURES 3
+#define NUM_EXAMPLES 3
+
 #define OUTPUTS 3
 
 #define HIDDEN_SIZE 3
 #define INPUT_SIZE 3
 #define OUTPUT_SIZE 3
+
+#define NUM_OF_HID_NODES 3
+#define NUM_OF_OUT_NODES 1
 
 // Neural networks
 double single_in_single_out(double input, double weight);
@@ -35,6 +41,8 @@ double find_error(double input, double weight, double expected_value);
 double find_error_simple(double yhat, double y);
 void bruteforce_learning(double input, double weight, double expected_values, double step_amount, uint32_t itr);
 void normalize_data (double *input_vector, double *output_vector, int LEN);
+void normalize_data_2D(int row, int col, double **input_matrix, double **output);
 void random_weight_initialization(int HIDDEN_LENGTH, int INPUT_LENGTH, double **weights_matrix);
+void random_weight_init_1D(double *output_vector, uint32_t LEN);
 
 #endif

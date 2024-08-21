@@ -122,6 +122,26 @@ void normalize_data (double *input_vector, double *output_vector, int LEN){
     }
 }
 
+void normalize_data_2D(int row, int col, double **input_matrix, double **output){
+    double max = -DBL_MAX;
+
+    for(size_t i = 0; i < row; i++){
+        for(size_t j = 0; j < row; j++){
+            if(input_matrix[i][j] > max){
+                max = input_matrix[i][j];
+            }
+        }
+    }
+
+    for(size_t i = 0; i < row; i++){
+        for(size_t j = 0; j < row; j++){
+            if(input_matrix[i][j] > max){
+                output[i][j] = input_matrix[i][j] / max;
+            }
+        }
+    }
+}
+
 void random_weight_initialization(int HIDDEN_LENGTH, int INPUT_LENGTH, double **weights_matrix){
     srand(2);
     double d_rand;
@@ -133,5 +153,16 @@ void random_weight_initialization(int HIDDEN_LENGTH, int INPUT_LENGTH, double **
 
             weights_matrix[i][j] = d_rand;
         }
+    }
+}
+
+void random_weight_init_1D(double *output_vector, uint32_t LEN){
+    double d_rand;
+    srand(2);
+
+    for(int x = 0; x < LEN; x++){
+        d_rand = (rand() % 10);
+        d_rand = d_rand / 10;
+        output_vector[x] = d_rand;
     }
 }
