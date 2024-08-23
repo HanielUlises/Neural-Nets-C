@@ -31,6 +31,57 @@ void hidden_layer_nn(double *input_vector, double in_to_hid_weights[HIDDEN_SIZE]
     matrix_vector_multiplication(hidden_pred_vector, HIDDEN_SIZE, output_vector, OUTPUT_SIZE, output_vector);
 }
 
+// Deep neural network
+// Supports arbitrary layers with weights and sizes defined in the function parameters.
+void deep_nn(double *input_vector, int input_size,
+             double *output_vector, int output_size,
+             double **weights[], int *layer_sizes, int num_layers) {
+    
+    double *current_input = input_vector;
+    int current_input_size = input_size;
+
+    double *current_output = (double *)malloc(layer_sizes[0] * sizeof(double));
+    double *next_output = NULL;
+
+    for (int layer = 0; layer < num_layers; layer++) {
+        int current_output_size = layer_sizes[layer];
+        
+        // If not the first layer, reallocate next_output for the new layer size
+        if (layer < num_layers - 1) {
+            next_output = (double *)malloc(layer_sizes[layer + 1] * sizeof(double));
+        }
+
+        for (int i = 0; i < current_output_size; i++) {
+            current_output[i] = 0.0;
+            for (int j = 0; j < current_input_size; j++) {
+                current_output[i] += current_input[j] * weights[layer][j][i];
+            }
+        }
+        
+        if (layer < num_layers - 1) {
+            // Prepare for the next layer
+            current_input = current_output;
+            current_input_size = current_output_size;
+
+            // Swap current_output and next_output
+            double *temp = current_output;
+            current_output = next_output;
+            next_output = temp;
+        }
+    }
+
+    // Copy the final output to the provided output vector
+    for (int i = 0; i < output_size; i++) {
+        output_vector[i] = current_output[i];
+    }
+
+    // Free the dynamically allocated memory
+    free(current_output);
+    if (next_output != NULL) {
+        free(next_output);
+    }
+}
+
 // Matrix-vector multiplication used in neural networks.
 void matrix_vector_multiplication (double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double weight_matrix[][OUTPUTS]) {
     multiple_in_multiple_out(input_vector, INPUT_LEN, output_vector, OUTPUT_LEN, weight_matrix);

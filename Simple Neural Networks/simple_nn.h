@@ -26,12 +26,14 @@ double multiple_in_single_out(double *input, double *weight, int length);
 void single_in_multiple_out(double scalar, double *w_vect, double *ut_vect, int length);
 void multiple_in_multiple_out(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double weight_matrix[][OUTPUTS]);
 
-
 void hidden_layer_nn(double *input_vector, 
                      double in_to_hid_weights[HIDDEN_SIZE][INPUT_SIZE], 
                      double hid_to_out_weights[OUTPUT_SIZE][HIDDEN_SIZE], 
                      double *output_vector);
 
+void deep_nn(double *input_vector, int input_size,
+             double *output_vector, int output_size,
+             double **weights[], int *layer_sizes, int num_layers);
 
 // Utils, i.e. util functions to use as operators
 double weighted_sum(double *input, double *weight, int length);
@@ -40,9 +42,12 @@ void matrix_vector_multiplication(double *input_vector, int INPUT_LEN, double *o
 double find_error(double input, double weight, double expected_value);
 double find_error_simple(double yhat, double y);
 void bruteforce_learning(double input, double weight, double expected_values, double step_amount, uint32_t itr);
-void normalize_data (double *input_vector, double *output_vector, int LEN);
+void normalize_data(double *input_vector, double *output_vector, int LEN);
 void normalize_data_2D(int row, int col, double **input_matrix, double **output);
 void random_weight_initialization(int HIDDEN_LENGTH, int INPUT_LENGTH, double **weights_matrix);
 void random_weight_init_1D(double *output_vector, uint32_t LEN);
+void softmax(double *input_vector, double *output_vector, int length);
+void relu(double *input_vector, double *output_vector, int length);
+void sigmoid(double *input_vector, double *output_vector, int length);
 
 #endif
