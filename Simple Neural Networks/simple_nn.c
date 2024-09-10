@@ -31,35 +31,61 @@ void hidden_layer_nn(double *input_vector, double in_to_hid_weights[HIDDEN_SIZE]
     matrix_vector_multiplication(hidden_pred_vector, HIDDEN_SIZE, output_vector, OUTPUT_SIZE, output_vector);
 }
 
-// Deep neural network
-// Supports arbitrary layers with weights and sizes defined in the function parameters.
+/**
+ * Performs a forward pass through a deep neural network with multiple layers.
+ * This function computes the output of the network given an input vector, a list of weights, and layer sizes.
+ * 
+ * @param input_vector A pointer to the input data vector.
+ * @param input_size The size of the input vector (number of features).
+ * @param output_vector A pointer to the vector where the final output of the network will be stored.
+ * @param output_size The size of the output vector (number of output neurons).
+ * @param weights A 3D array of weights where each layer's weights are stored in a 2D matrix.
+ * @param layer_sizes An array containing the number of neurons in each layer of the network.
+ * @param num_layers The total number of layers in the network.
+ * 
+ * This function handles the forward propagation of inputs through multiple layers of a neural network.
+ * It computes the weighted sum of inputs for each neuron, applies an activation function, and moves to the next layer.
+ * 
+ * Note: Memory allocation and deallocation are handled within this function for intermediate layer outputs.
+ */
 void deep_nn(double *input_vector, int input_size,
              double *output_vector, int output_size,
              double **weights[], int *layer_sizes, int num_layers) {
     
+    // Allocate memory for the output of each layer
     double *current_input = input_vector;
     int current_input_size = input_size;
 
+    // Allocate memory for the output of the first layer
     double *current_output = (double *)malloc(layer_sizes[0] * sizeof(double));
     double *next_output = NULL;
 
+    // Iterate through each layer of the network
     for (int layer = 0; layer < num_layers; layer++) {
         int current_output_size = layer_sizes[layer];
         
-        // If not the first layer, reallocate next_output for the new layer size
+        // Allocate memory for the output of the next layer if not the last layer
         if (layer < num_layers - 1) {
             next_output = (double *)malloc(layer_sizes[layer + 1] * sizeof(double));
         }
 
+        // Weighted sum for each neuron in the current layer
         for (int i = 0; i < current_output_size; i++) {
             current_output[i] = 0.0;
             for (int j = 0; j < current_input_size; j++) {
                 current_output[i] += current_input[j] * weights[layer][j][i];
             }
+            // Apply activation function (ReLU or sigmoid) if necessary
+            // Using ReLU for hidden layers
+            if (layer < num_layers - 1) {
+                 // ReLU activation
+                current_output[i] = fmax(0.0, current_output[i]); 
+            }
         }
         
+        // Prepare for the next layer
         if (layer < num_layers - 1) {
-            // Prepare for the next layer
+            // Set current_input to the current_output for the next layer
             current_input = current_output;
             current_input_size = current_output_size;
 
@@ -70,12 +96,10 @@ void deep_nn(double *input_vector, int input_size,
         }
     }
 
-    // Copy the final output to the provided output vector
     for (int i = 0; i < output_size; i++) {
         output_vector[i] = current_output[i];
     }
 
-    // Free the dynamically allocated memory
     free(current_output);
     if (next_output != NULL) {
         free(next_output);
@@ -215,5 +239,92 @@ void random_weight_init_1D(double *output_vector, uint32_t LEN){
         d_rand = (rand() % 10);
         d_rand = d_rand / 10;
         output_vector[x] = d_rand;
+    }
+}
+
+// Computes the output vector from an input vector and a matrix of weights for a deep neural network.
+void deep_nn(double *input_vector, int input_size,
+             double *output_vector, int output_size,
+             double **weights[], int *layer_sizes, int num_layers) {
+    double *current_input = input_vector;
+    int current_input_size = input_size;
+
+    double *current_output = (double *)malloc(layer_sizes[0] * sizeof(double));
+    double *next_output = NULL;
+
+    for (int layer = 0; layer < num_layers; layer++) {
+        int current_output_size = layer_sizes[layer];
+        
+        // If not the first layer, we reallocate the 
+        // next output for the new layer size
+        if (layer < num_layers - 1) {
+            next_output = (double *)malloc(layer_sizes[layer + 1] * sizeof(double));
+        }
+
+        // Matrix-vector multiplication
+        for (int i = 0; i < current_output_size; i++) {
+            current_output[i] = 0.0;
+            for (int j = 0; j < current_input_size; j++) {
+                current_output[i] += current_input[j] * weights[layer][j][i];
+            }
+        }
+        
+        if (layer < num_layers - 1) {
+            // Prepare for the next layer
+            current_input = current_output;
+            current_input_size = current_output_size;
+
+            // Swap current_output and next_output
+            double *temp = current_output;
+            current_output = next_output;
+            next_output = temp;
+        }
+    }
+
+    for (int i = 0; i < output_size; i++) {
+        output_vector[i] = current_output[i];
+    }
+
+    free(current_output);
+    if (next_output != NULL) {
+        free(next_output);
+    }
+}
+
+// Applies the softmax function to the input vector.
+void softmax(double *input_vector, double *output_vector, int length) {
+    double max = input_vector[0];
+    double sum = 0.0;
+
+    // Find the maximum value in the input vector for numerical stability
+    for (int i = 1; i < length; i++) {
+        if (input_vector[i] > max) {
+            max = input_vector[i];
+        }
+    }
+
+    // Compute the exponentials and the sum
+    for (int i = 0; i < length; i++) {
+        output_vector[i] = exp(input_vector[i] - max);
+        sum += output_vector[i];
+    }
+
+    // Normalize the exponentials to obtain probabilities
+    for (int i = 0; i < length; i++) {
+        output_vector[i] /= sum;
+    }
+}
+
+// Applies the ReLU (Rectified Linear Unit) activation function to the input vector.
+void relu(double *input_vector, double *output_vector, int length) {
+    for (int i = 0; i < length; i++) {
+        output_vector[i] = fmax(0.0, input_vector[i]);
+    }
+}
+
+// Applies the sigmoid activation function to the input vector.
+void sigmoid(double *input_vector, double *output_vector, int length) {
+    for (int i = 0; i < length; i++) {
+        output_vector[i] = 1.0 / (1.0 + exp(-input_vector[i]));
     }
 }
