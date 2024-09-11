@@ -1,25 +1,29 @@
+#ifndef TESTS_H
+#define TESTS_H
+
 #include "simple_nn.h"
 
-#define SAD_IDX     0
-#define SICK_IDX    1
-#define ACTIVE_IDX  2
+// Test functions for different neural network configurations
 
-/*
-    Problem is to determine whether a person is sad or not based on 
-    the ambience
-
-    Prediction: Person's mood.
-*/
-
-// Single input Single output
+// Single input Single output neural network test
 void test_siso_nn();
-// Single input Multiple output
+
+// Single input Multiple output neural network test
 void test_simo_nn();
-// Multiple input single output
+
+// Multiple input Single output neural network test
 void test_miso_nn();
-// Muliple input Multiple output
+
+// Multiple input Multiple output neural network test
 void test_mimo_nn();
-// Hidden layer neural network
+
+// Hidden layer neural network test
 void test_hidden_layer_nn();
 
+// Brute force learning test
+void test_brute_force();
+
+// Forward propagation example test
 void forward_propagation();
+
+#endif

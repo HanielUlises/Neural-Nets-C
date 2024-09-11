@@ -1,136 +1,124 @@
 #include "tests.h"
+#include <stdio.h>
+#include <stdlib.h>
 
-void test_siso_nn (){
-    double temperature[] = {12, 23, 50, -10, 16};
-    double weight = -2;
+// Test for Single Input Single Output neural network
+void test_siso_nn() {
+    double input = 5.0;
+    double weight = -2.0;
+    double result = single_in_single_out(input, weight);
 
-    size_t vec_size = sizeof(temperature) / sizeof(double);
-
-    printf("Predicted values: \n");
-    for(size_t i = 0; i < vec_size; i++){
-        printf("Current predicted value %zu: %f\n", i+1, single_in_single_out(temperature[i], weight));
-    }
+    printf("Single Input Single Output Test:\n");
+    printf("Input: %f, Weight: %f, Prediction: %f\n", input, weight, result);
 }
 
+// Test for Multiple Input Single Output neural network
 void test_miso_nn() {
-    double temperature[] = {12, 23, 50, -10, 16};
-    double humidity[] = {60, 67, 50, 65, 63};
-    double air_quality[] = {60, 47, 167, 187, 94};
+    double inputs[NUM_FEATURES] = {12, 23, 50};
+    double weights[NUM_FEATURES] = {-2, 2, 1};
+    double result = multiple_in_single_out(inputs, weights, NUM_FEATURES);
 
-    size_t vec_size = sizeof(temperature) / sizeof(double);
+    printf("Multiple Input Single Output Test:\n");
+    printf("Inputs: [%f, %f, %f], Weights: [%f, %f, %f], Prediction: %f\n",
+           inputs[0], inputs[1], inputs[2],
+           weights[0], weights[1], weights[2],
+           result);
+}
 
-    double weights[] = {-2, 2, 1};
+// Test for Single Input Multiple Output neural network
+void test_simo_nn() {
+    double scalar = 0.9;
+    double weights[OUTPUTS] = {-20, 95, 201};
+    double results[OUTPUTS];
 
-    double training_eg[3]; // Three features: temperature, humidity, air quality
+    single_in_multiple_out(scalar, weights, results, OUTPUTS);
 
-    for (size_t i = 0; i < vec_size; i++) {
-        training_eg[0] = temperature[i];
-        training_eg[1] = humidity[i];
-        training_eg[2] = air_quality[i];
-
-        printf("Current test: %f \r\n", multiple_in_single_out(training_eg, weights, 3));
+    printf("Single Input Multiple Output Test:\n");
+    for (int i = 0; i < OUTPUTS; i++) {
+        printf("Output %d: %f\n", i, results[i]);
     }
 }
 
-void test_simo_nn(){
-    const double Sad = 0.9;
-    // These weights are for: 
-    // Temperature
-    // Humidity
-    // Air quality
-    double weights [3] = {-20, 95, 201};
-    double predicted_results[3];
-
-    size_t size = sizeof(weights)/sizeof(double);
-
-    single_in_multiple_out(Sad, weights, predicted_results, size);
-
-    printf("Predicted temperature is: %f \r\n", predicted_results[0]);
-    printf("Predicted humidity is: %f \r\n", predicted_results[1]);
-    printf("Predicted air quality is: %f \r\n", predicted_results[2]);
-}
-
-void test_mimo_nn (){
-    double predicted_results[3];
-
-    size_t size = sizeof(predicted_results)/sizeof(double);
-
-    double weights[NUM_FEATURES][OUTPUTS] = 
-        {{-2, 9.5, 2.01},
-         {-0.8, 7.2, 6.3},
-         {-0.5, 0.45, 0.9}};
-
+// Test for Multiple Input Multiple Output neural network
+void test_mimo_nn() {
     double inputs[NUM_FEATURES] = {30, 87, 100};
+    double weights[OUTPUTS][NUM_FEATURES] = {
+        {-2, 9.5, 2.01},
+        {-0.8, 7.2, 6.3},
+        {-0.5, 0.45, 0.9}
+    };
+    double results[OUTPUTS];
 
-    multiple_in_multiple_out(inputs, NUM_FEATURES,predicted_results, OUTPUTS, weights);
+    multiple_in_multiple_out(inputs, NUM_FEATURES, results, OUTPUTS, weights);
 
-    printf("Predicted values of multiple input, multiple output NN\n");
-    for(size_t i = 0; i < size; i++){
-        printf("%d %f\n",i+1, predicted_results[i]);
+    printf("Multiple Input Multiple Output Test:\n");
+    for (int i = 0; i < OUTPUTS; i++) {
+        printf("Output %d: %f\n", i, results[i]);
     }
 }
 
-void test_hidden_layer_nn (){
-    double predicted_results[3];
-    size_t predict_size = sizeof(predicted_results)/sizeof(double);
-    // Vector from input to the actual hidden layer
-    double input_to_hidden[HIDDEN_SIZE][INPUT_SIZE] = 
-                                                        {{-2, 9.5, 2.01},
-                                                         {-0.8,7.2, 6.3},
-                                                         {-0.5, 0.45, 0.9}};
-    // Vector from hidden layer to the output vector
-    double hidden_to_output[OUTPUT_SIZE][HIDDEN_SIZE] =
-                                                        {{-1.0, 1.15, 0.11},
-                                                         {-0.18, 0.15, -0.01},
-                                                         {0.25, -0.25, -0.1}};
+// Test for Hidden Layer neural network
+void test_hidden_layer_nn() {
+    Layer hidden_layer = create_layer(INPUT_SIZE, HIDDEN_SIZE, SIGMOID);
+    Layer output_layer = create_layer(HIDDEN_SIZE, OUTPUT_SIZE, SIGMOID);
     double inputs[INPUT_SIZE] = {30, 82, 110};
-    hidden_layer_nn(inputs, input_to_hidden, hidden_to_output, predicted_results);
+    double output_vector[OUTPUT_SIZE];
 
-    printf("Predicted results:   \n");
-    for(size_t i = 0; i < predict_size; i++){
-        printf("%f", predicted_results[i]);
+    // Initialize weights for hidden and output layers
+    random_weight_initialization(HIDDEN_SIZE, INPUT_SIZE, hidden_layer.weights);
+    random_weight_initialization(OUTPUT_SIZE, HIDDEN_SIZE, output_layer.weights);
+
+    // Forward pass through the hidden layer and output layer
+    hidden_layer_nn(inputs, &hidden_layer, &output_layer, output_vector);
+
+    printf("Hidden Layer Neural Network Test:\n");
+    for (int i = 0; i < OUTPUT_SIZE; i++) {
+        printf("Predicted Output %d: %f\n", i, output_vector[i]);
     }
 
-    double expected_values [OUTPUT_SIZE] = {30, 87, 110};
-    printf("Sad error: %f", find_error_simple(predicted_results[SAD_IDX], expected_values[SAD_IDX]));
-    printf("Sick error: %f", find_error_simple(predicted_results[SICK_IDX], expected_values[SICK_IDX]));
-    printf("Active error: %f", find_error_simple(predicted_results[ACTIVE_IDX], expected_values[ACTIVE_IDX]));
+    // Example expected values
+    double expected_values[OUTPUT_SIZE] = {30, 87, 110};
+    printf("Errors:\n");
+    for (int i = 0; i < OUTPUT_SIZE; i++) {
+        printf("Error for output %d: %f\n", i, find_error_simple(output_vector[i], expected_values[i]));
+    }
 }
 
-void test_brute_force(){
+// Test for brute force learning
+void test_brute_force() {
     double input = 0.5;
     double weight = 0.5;
     double expected_value = 0.8;
     double step_amount = 0.001;
+    uint32_t iterations = 800;
 
-    bruteforce_learning(input, weight, expected_value, step_amount, 800);
+    printf("Brute Force Learning Test:\n");
+    bruteforce_learning(input, weight, expected_value, step_amount, iterations);
 }
 
+// Forward propagation example with a basic neural network
 void forward_propagation() {
     double raw_x_data[NUM_FEATURES][NUM_EXAMPLES] = {
         {2, 5, 1},
         {8, 5, 8}
     };
-
     double raw_y_data[1][NUM_EXAMPLES] = {{200, 90, 190}};
 
-    double **raw_x = malloc(NUM_FEATURES * sizeof(double *));
-    double **raw_y = malloc(1 * sizeof(double *));
-    double **train_x = malloc(NUM_FEATURES * sizeof(double *));
-    double **train_y = malloc(1 * sizeof(double *));
+    double **raw_x = (double **)malloc(NUM_FEATURES * sizeof(double *));
+    double **raw_y = (double **)malloc(1 * sizeof(double *));
+    double **train_x = (double **)malloc(NUM_FEATURES * sizeof(double *));
+    double **train_y = (double **)malloc(1 * sizeof(double *));
 
     for (int i = 0; i < NUM_FEATURES; i++) {
         raw_x[i] = raw_x_data[i];
-        train_x[i] = malloc(NUM_EXAMPLES * sizeof(double));
+        train_x[i] = (double *)malloc(NUM_EXAMPLES * sizeof(double));
     }
     raw_y[0] = raw_y_data[0];
-    train_y[0] = malloc(NUM_EXAMPLES * sizeof(double));
+    train_y[0] = (double *)malloc(NUM_EXAMPLES * sizeof(double));
 
-    // Normalize data
     normalize_data_2D(NUM_FEATURES, NUM_EXAMPLES, raw_x, train_x);
     normalize_data_2D(1, NUM_EXAMPLES, raw_y, train_y);
 
-    // Neural network weights
     double syn0[NUM_OF_HID_NODES][NUM_FEATURES] = {
         {-0.1, 0.2, 0.3},
         {0.4, -0.5, 0.6},
@@ -141,43 +129,32 @@ void forward_propagation() {
     };
 
     double train_x_eg1[NUM_FEATURES];
-    double train_y_eg1;
+    double train_y_eg1 = train_y[0][0];
 
-    train_x_eg1[0] = train_x[0][0];
-    train_x_eg1[1] = train_x[1][0];
+    for (int i = 0; i < NUM_FEATURES; i++) {
+        train_x_eg1[i] = train_x[i][0];
+    }
 
-    train_y_eg1 = train_y[0][0];
-
-    // Neural network operations
     double z1_eg1[NUM_OF_HID_NODES];
     double a1_eg1[NUM_OF_HID_NODES];
-    double z2_eg1;
-    double yhat_eg1;
+    double z2_eg1 = 0;
+    double yhat_eg1 = 0;
 
-    // Forward propagation through the network
-    // Layer 1 (Input to Hidden Layer)
+    // Forward pass through the hidden layer
     for (int i = 0; i < NUM_OF_HID_NODES; i++) {
-        z1_eg1[i] = 0;
-        for (int j = 0; j < NUM_FEATURES; j++) {
-            z1_eg1[i] += train_x_eg1[j] * syn0[i][j];
-        }
-        // Applying activation function
-        a1_eg1[i] = 1 / (1 + exp(-z1_eg1[i]));
+        z1_eg1[i] = weighted_sum(train_x_eg1, syn0[i], NUM_FEATURES);
+        a1_eg1[i] = 1 / (1 + exp(-z1_eg1[i]));  // Sigmoid activation
     }
 
-    // Layer 2 (Hidden Layer to Output Layer)
-    z2_eg1 = 0;
-    for (int i = 0; i < NUM_OF_HID_NODES; i++) {
-        z2_eg1 += a1_eg1[i] * syn1[0][i];
-    }
-
-    // Activation function (sigmoid)
-    yhat_eg1 = 1 / (1 + exp(-z2_eg1));
+    // Forward pass through the output layer
+    z2_eg1 = weighted_sum(a1_eg1, syn1[0], NUM_OF_HID_NODES);
+    yhat_eg1 = 1 / (1 + exp(-z2_eg1));  // Sigmoid activation
 
     printf("Normalized training example: [%f, %f]\n", train_x_eg1[0], train_x_eg1[1]);
     printf("Normalized training label: %f\n", train_y_eg1);
     printf("Predicted output: %f\n", yhat_eg1);
 
+    // Cleanup
     for (int i = 0; i < NUM_FEATURES; i++) {
         free(train_x[i]);
     }
