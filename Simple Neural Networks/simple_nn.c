@@ -311,8 +311,9 @@ void deep_nn(double *input_vector, int input_size,
             // For intermediate layers, pass the current output as the next layer's input
             current_input = current_output;
         }
-
-        free(current_output);  // Free memory allocated for current layer's output
+          // Free memory allocated for current layer's output
+          // My goodness I almost messed up
+        free(current_output);
     }
 
     // If the final layer uses softmax, apply it to the final output
