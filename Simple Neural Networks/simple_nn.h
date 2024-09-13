@@ -20,12 +20,18 @@
 #define NUM_OF_HID_NODES 3
 #define NUM_OF_OUT_NODES 1
 
+// Loss Functions
+typedef enum {
+    MEAN_SQUARED_ERROR,
+    CROSS_ENTROPY
+} LossFunction;
+
 // Derivative function types
 typedef enum {
     RELU_P,
     SIGMOID_P,
     SOFTMAX_P,
-    NO_DERIVATIVE // Renamed to avoid conflict
+    NO_DERIVATIVE
 } Derivative;
 
 // Activation function type for flexibility
@@ -33,7 +39,7 @@ typedef enum {
     RELU,
     SIGMOID,
     SOFTMAX,
-    NO_ACTIVATION // Renamed from NONE to avoid conflict
+    NO_ACTIVATION 
 } Activation;
 
 // Layer structure to encapsulate the weights, biases, and activation function
@@ -106,6 +112,9 @@ void bruteforce_learning(double *input_vector, double *expected_values, double l
 // ii) Gradient descent learning for optimizing weights
 void gradient_descent(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer);
 
+// Backpropagation to compute gradients and adjust weights
+void backpropagation(NeuralNetwork *nn, double *input_vector, double *expected_values, double learning_rate);
+
 // Data normalization
 void normalize_data(double *input_vector, double *output_vector, int LEN);
 void normalize_data_2D(int row, int col, double **input_matrix, double **output);
@@ -123,6 +132,9 @@ void sigmoid(double *input_vector, double *output_vector, int length);
 void sigmoid_derivative(double *input_vector, double *output_vector, int length);
 void relu_derivative(double *input_vector, double *output_vector, int length);
 void softmax_derivative(double *input_vector, double *output_vector, int length);
+
+// listing
+void apply_derivative(double *output_vector, int size, Derivative derivative);
 
 // Deep neural network forward pass
 void deep_nn(double *input_vector, int input_size, 

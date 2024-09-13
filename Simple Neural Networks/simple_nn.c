@@ -79,7 +79,26 @@ void destroy_neural_network(NeuralNetwork *nn) {
     free(nn->output_vector);
 }
 
-// Forward pass through the neural network
+/**
+ * Performs a forward pass through a deep neural network with n layers.
+ * This function computes the output of the network given an input vector, a list of layers, and their sizes.
+ * 
+ * @param nn Pointer to the NeuralNetwork structure that contains the layers, weights, biases, and activation functions.
+ * @param input_vector Pointer to the input data vector, which represents the X input features to the network.
+ * 
+ * Process:
+ * 1. Iterates through each layer of the neural network.
+ * 2. For each layer:
+ *    - Computes the weighted sum of inputs by performing matrix-vector multiplication.
+ *    - Adds biases to the result.
+ *    - Applies the specified activation function (e.g., RELU, SIGMOID, SOFTMAX).
+ * 3. Passes the resulting output to the next layer as the input.
+ * 4. Stores the final output of the network in the `nn->output_vector`.
+ * 5. If the output layer uses the SOFTMAX activation function, it applies the Softmax function to the final output.
+ * 
+ * @note Ensure that the NeuralNetwork struct is properly initialized before invoking this function, i mean, its obvious.
+ */
+
 void forward_pass(NeuralNetwork *nn, double *input_vector) {
     double *current_input = input_vector;
     double *current_output = NULL;
@@ -323,7 +342,7 @@ void gradient_descent(double *input_vector, double *expected_values, double lear
                     break;
             }
 
-            // Calculate error for this layer
+            // Error for this layer
             errors[i] = output_vector[i] - expected_values[i];
         }
 
@@ -442,7 +461,7 @@ void softmax(double *input_vector, double *output_vector, int length) {
     }
 }
 
-// Activation functions (not currently used)
+// Activation functions (not explicitly used)
 // ReLU activation function
 void relu(double *input_vector, double *output_vector, int length) {
     for (int i = 0; i < length; i++) {
@@ -466,12 +485,89 @@ void sigmoid_derivative(double *input_vector, double *output_vector, int length)
 
 void relu_derivative(double *input_vector, double *output_vector, int length){
     for (int i = 0; i < length; i++) {
-        output_vector[i] = (input_vector[i] > 0) ? 1.0 : 0.0; // Derivative of ReLU
+        output_vector[i] = (input_vector[i] > 0) ? 1.0 : 0.0;
     }
 }
 
 void softmax_derivative(double *input_vector, double *output_vector, int length) {
     // placeholder    
+}
+
+void apply_derivative(double *output_vector, int size, Derivative derivative) {
+    switch (derivative) {
+        case RELU_P:
+            relu_derivative(output_vector, output_vector, size);
+            break;
+        case SIGMOID_P:
+            sigmoid_derivative(output_vector, output_vector, size);
+            break;
+        case SOFTMAX_P:
+            softmax_derivative(output_vector, output_vector, size);
+            break;
+        case NO_DERIVATIVE:
+            // Do nothing
+            break;
+    }
+}
+
+void backpropagation(NeuralNetwork *nn, double *input_vector, double *expected_values, double learning_rate) {
+    int i, j, k;
+
+    forward_pass(nn, input_vector);
+
+    // Matrix for error terms and gradients
+    double **deltas = (double **)malloc(nn->num_layers * sizeof(double *));
+    for (i = 0; i < nn->num_layers; i++) {
+        deltas[i] = (double *)malloc(nn->layers[i].output_size * sizeof(double));
+    }
+
+    // Error for the output layer
+    Layer *output_layer = &nn->layers[nn->num_layers - 1];
+    for (i = 0; i < output_layer->output_size; i++) {
+        double output_value = nn->output_vector[i];
+         // Cross-entropy loss gradient
+        deltas[nn->num_layers - 1][i] = output_value - expected_values[i]; 
+    }
+
+    // Backpropagate through each hidden layer
+    for (i = nn->num_layers - 2; i >= 0; i--) {
+        Layer *current_layer = &nn->layers[i];
+        Layer *next_layer = &nn->layers[i + 1];
+
+        // Calculate the error for the current layer
+        for (j = 0; j < current_layer->output_size; j++) {
+            double delta_sum = 0.0;
+            for (k = 0; k < next_layer->output_size; k++) {
+                delta_sum += deltas[i + 1][k] * next_layer->weights[k][j];
+            }
+            deltas[i][j] = delta_sum;
+        }
+
+        // Derivative of the activation function
+        apply_derivative(deltas[i], current_layer->output_size, current_layer->derivative);
+    }
+
+    // Update weights and biases for each layer
+    for (i = 0; i < nn->num_layers; i++) {
+        Layer *current_layer = &nn->layers[i];
+
+        // Update weights
+        for (j = 0; j < current_layer->output_size; j++) {
+            for (k = 0; k < current_layer->input_size; k++) {
+                current_layer->weights[j][k] -= learning_rate * deltas[i][j] * input_vector[k];
+            }
+        }
+
+        // Update biases
+        for (j = 0; j < current_layer->output_size; j++) {
+            current_layer->biases[j] -= learning_rate * deltas[i][j];
+        }
+    }
+
+    for (i = 0; i < nn->num_layers; i++) {
+        free(deltas[i]);
+    }
+    free(deltas);
 }
 
 /**

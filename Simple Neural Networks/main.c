@@ -1,22 +1,26 @@
 #include "simple_nn.h"
 
 int main() {
-    int layer_sizes[] = {3, 3, 3}; 
-    Activation activations[] = {RELU, RELU, SOFTMAX};
-    NeuralNetwork nn = create_neural_network(3, layer_sizes, activations);
+    // Two entry neurons with a single output neuron
+    int layer_sizes[] = {2, 1};  
 
-    double input_vector[] = {0.5, 0.8, 0.3};  
-    double output_vector[3];
+    Activation activations[] = {RELU};  
+    NeuralNetwork nn = create_neural_network(1, layer_sizes, activations);
 
-    forward_pass(&nn, input_vector);
+    nn.layers[0].weights[0][0] = 0.6;
+    nn.layers[0].weights[0][1] = 0.8;  
+    nn.layers[0].biases[0] = 0;       
 
-    printf("Output after forward pass:\n");
-    for (int i = 0; i < 3; i++) {
-        printf("%f ", nn.output_vector[i]);
-    }
-    printf("\n");
+    double input_vector1[] = {1, 6};
+    forward_pass(&nn, input_vector1);
 
-    // Cleaning up
+    printf("Output for input [1, 6]: %f\n", nn.output_vector[0]);
+
+    double input_vector2[] = {2, 8};
+    forward_pass(&nn, input_vector2);
+
+    printf("Output for input [2, 8]: %f\n", nn.output_vector[0]);
+
     for (int i = 0; i < nn.num_layers; i++) {
         for (int j = 0; j < nn.layers[i].output_size; j++) {
             free(nn.layers[i].weights[j]);
