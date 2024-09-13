@@ -18,6 +18,13 @@
 #define NUM_OF_HID_NODES 3
 #define NUM_OF_OUT_NODES 1
 
+typedef enum{
+    RELU_P,
+    SIGMOID_P,
+    SOFTMAX_P,
+    NONE
+} Derivative;
+
 // Activation function type for flexibility
 typedef enum {
     RELU,
@@ -33,6 +40,7 @@ typedef struct {
     double **weights;    // Weight matrix for the layer
     double *biases;      // Bias vector for the layer
     Activation activation; // Activation function used in the layer
+    Derivative derivative;
 } Layer;
 
 // Neural Network structure, contains an array of layers
@@ -74,8 +82,18 @@ void matrix_vector_multiplication(double *input_vector, int INPUT_LEN, double *o
 double find_error(double input, double weight, double expected_value);
 double find_error_simple(double yhat, double y);
 
-// Brute force learning for optimizing weights
+// Neural network learning
+/// @param input represents the x-ith input from the X input set of the neural network
+/// @param weight represents the w-ith input from the W input set of the neural network
+/// @param expected_values represent the y actual value that we expect
+/// @param stemp_ampunt learning rate 
+/// @param itr mu-th element 
+
+// i) Brute force learning for optimizing weights
 void bruteforce_learning(double input, double weight, double expected_values, double step_amount, uint32_t itr);
+
+// ii) Gradient descent learning for optimizing weights
+void gradient_descent(double *input, double *weight, double expected_values, double step_amout, uint32_t itr, Layer *layer);
 
 // Data normalization
 void normalize_data(double *input_vector, double *output_vector, int LEN);
@@ -89,6 +107,11 @@ void random_weight_init_1D(double *output_vector, uint32_t LEN);
 void softmax(double *input_vector, double *output_vector, int length);
 void relu(double *input_vector, double *output_vector, int length);
 void sigmoid(double *input_vector, double *output_vector, int length);
+
+// Derivative of activation function
+void softmax_p (double *input_vector, double *output_vector, int length);
+void relu_p (double *input_vector, double *output_vector, int lenght);
+void sigmoid_p (double *input_vector, double *output_vector, int lenght);
 
 // Deep neural network forward pass
 void deep_nn(double *input_vector, int input_size, 

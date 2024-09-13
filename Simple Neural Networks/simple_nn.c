@@ -169,6 +169,38 @@ void bruteforce_learning(double input, double weight, double expected_values, do
     }
 }
 
+void gradient_descent(double *input, double *weight, double expected_values, double step_amout, uint32_t itr, Layer *layer){
+    double *prediction, error;
+    double *prediction_p;
+
+    for(uint32_t i = 0; i < itr; i++){
+        switch(layer->activation){
+            case RELU:
+                relu(input, prediction, i);
+            case SIGMOID:
+                sigmoid(input, prediction, i);
+            case SOFTMAX:
+                sigmoid(input, prediction, i);
+        }
+
+        switch (layer -> derivative)        {
+            case RELU_P:
+                relu_p(input, prediction, i);
+            case SIGMOID_P:
+                sigmoid_p(input, prediction, i);
+            case SOFTMAX_P:
+                softmax_p(input, prediction, i);
+            break;
+        
+        default:
+            break;
+        }
+
+        error = 
+
+    }
+}
+
 // Normalize data by dividing each element by the max value
 void normalize_data(double *input_vector, double *output_vector, int LEN) {
     double max = input_vector[0];
@@ -255,6 +287,27 @@ void sigmoid(double *input_vector, double *output_vector, int length) {
         output_vector[i] = 1.0 / (1.0 + exp(-input_vector[i]));
     }
 }
+
+// Softmax function derivative for optimization
+void sigmood_p(double *input_vector, double *output_vector, int length) {
+    for (int i = 0; i < length; i++) {
+        output_vector[i] = input_vector[i] * (1 - input_vector[i]);
+    }
+}
+
+void relu_p(double *input_vector, double *output_vector, int length){
+    for(int i = 0; i < length; i++){
+        if(input_vector[i] < 0){
+            output_vector[i] = 0;
+        }else if (input_vector[i] > 1){
+            output_vector[i] = 0;
+        }
+    }
+}
+
+void softmax_p(double *input_vector, double *output_vector, int length){
+    // PENDING LOL
+}   
 
 /**
  * Performs a forward pass through a deep neural network with multiple layers.
