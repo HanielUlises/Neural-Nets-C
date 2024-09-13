@@ -103,7 +103,7 @@ void forward_pass(NeuralNetwork *nn, double *input_vector) {
                 case SOFTMAX:
                     // Softmax will be applied at the output layer
                     break;
-                case NONE:
+                case NO_ACTIVATION:
                     // No activation
                     break;
             }
@@ -182,7 +182,7 @@ void apply_activation(double *output_vector, int size, Activation activation) {
                 break;
             case SOFTMAX:
                 break;
-            case NONE:
+            case NO_ACTIVATION:
                 break;
         }
     }
@@ -338,8 +338,7 @@ void gradient_descent(double *input_vector, double *expected_values, double lear
                     activation_derivative[i] = activation_value * (1 - activation_value);
                     break;
                 case SOFTMAX:
-                    // Softmax derivative needs to be computed for each class
-                    // For simplicity, we'll use a placeholder function
+                    // SOFTMAX DERIVATIVE STILL PENDING 
                     softmax_derivative(output_vector, deltas, layer->output_size);
                     break;
                 default:
@@ -357,7 +356,6 @@ void gradient_descent(double *input_vector, double *expected_values, double lear
             layer->biases[i] -= learning_rate * deltas[i];
         }
 
-        // Print out the error for this iteration
         error = 0.0;
         for (int i = 0; i < layer->output_size; i++) {
             error += pow(errors[i], 2);
@@ -371,7 +369,7 @@ void gradient_descent(double *input_vector, double *expected_values, double lear
     free(activation_derivative);
 }
 
-// Normalize data by dividing each element by the max value
+// Normalize data by dividing each element base on the max value
 void normalize_data(double *input_vector, double *output_vector, int LEN) {
     double max = input_vector[0];
 
@@ -460,25 +458,21 @@ void sigmoid(double *input_vector, double *output_vector, int length) {
 }
 
 // Softmax function derivative for optimization
-void sigmood_p(double *input_vector, double *output_vector, int length) {
+void sigmoid_derivative(double *input_vector, double *output_vector, int length) {
     for (int i = 0; i < length; i++) {
-        output_vector[i] = input_vector[i] * (1 - input_vector[i]);
+        output_vector[i] = input_vector[i] * (1.0 - input_vector[i]);
     }
 }
 
-void relu_p(double *input_vector, double *output_vector, int length){
-    for(int i = 0; i < length; i++){
-        if(input_vector[i] < 0){
-            output_vector[i] = 0;
-        }else if (input_vector[i] > 1){
-            output_vector[i] = 0;
-        }
+void relu_derivative(double *input_vector, double *output_vector, int length){
+    for (int i = 0; i < length; i++) {
+        output_vector[i] = (input_vector[i] > 0) ? 1.0 : 0.0; // Derivative of ReLU
     }
 }
 
-void softmax_p(double *input_vector, double *output_vector, int length){
-    // PENDING LOL
-}   
+void softmax_derivative(double *input_vector, double *output_vector, int length) {
+    // placeholder    
+}
 
 /**
  * Performs a forward pass through a deep neural network with multiple layers.
@@ -520,7 +514,7 @@ void deep_nn(double *input_vector, int input_size,
                 case SOFTMAX:
                     // Softmax will be applied at the final output layer
                     break;
-                case NONE:
+                case NO_ACTIVATION:
                     // No activation for linear layers
                     break;
             }

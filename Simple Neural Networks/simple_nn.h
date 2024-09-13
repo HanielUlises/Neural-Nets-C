@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef SIMPLE_NN_H
 #define SIMPLE_NN_H
 
@@ -18,11 +20,12 @@
 #define NUM_OF_HID_NODES 3
 #define NUM_OF_OUT_NODES 1
 
-typedef enum{
+// Derivative function types
+typedef enum {
     RELU_P,
     SIGMOID_P,
     SOFTMAX_P,
-    NONE
+    NO_DERIVATIVE // Renamed to avoid conflict
 } Derivative;
 
 // Activation function type for flexibility
@@ -30,23 +33,23 @@ typedef enum {
     RELU,
     SIGMOID,
     SOFTMAX,
-    NONE // For layers without activation
+    NO_ACTIVATION // Renamed from NONE to avoid conflict
 } Activation;
 
 // Layer structure to encapsulate the weights, biases, and activation function
 typedef struct {
-    int input_size;      // Number of inputs for the layer
-    int output_size;     // Number of outputs for the layer (neurons)
-    double **weights;    // Weight matrix for the layer
-    double *biases;      // Bias vector for the layer
+    int input_size;        // Number of inputs for the layer
+    int output_size;       // Number of outputs for the layer (neurons)
+    double **weights;      // Weight matrix for the layer
+    double *biases;        // Bias vector for the layer
     Activation activation; // Activation function used in the layer
-    Derivative derivative;
+    Derivative derivative; // Derivative function used in backpropagation
 } Layer;
 
 // Neural Network structure, contains an array of layers
 typedef struct {
-    int num_layers;   // Total number of layers in the network
-    Layer *layers;    // Pointer to an array of layers
+    int num_layers;        // Total number of layers in the network
+    Layer *layers;         // Pointer to an array of layers
     double *output_vector; // Final output of the network
 } NeuralNetwork;
 
@@ -55,6 +58,10 @@ Layer create_layer(int input_size, int output_size, Activation activation);
 
 // Constructor
 NeuralNetwork create_neural_network(int num_layers, int *layer_sizes, Activation *activations);
+
+// Destructors
+void destroy_layer(Layer *layer);
+void destroy_neural_network(NeuralNetwork *nn);
 
 // Perform forward pass through the neural network
 void forward_pass(NeuralNetwork *nn, double *input_vector);
@@ -70,6 +77,9 @@ void single_in_multiple_out(double scalar, double* w_vect, double* out_vect, int
 
 // Multiple inputs producing multiple outputs
 void multiple_in_multiple_out(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double **weight_matrix);
+
+// Element-wise multiplication of a scalar with each element in a vector.
+void element_wise_multiply(double input_scalar, double* weight_vector, double* output_vector, int length);
 
 // Neural network hidden layer transformation
 void hidden_layer_nn(double *input_vector, Layer *hidden_layer, Layer *output_layer, double *output_vector);
@@ -94,7 +104,7 @@ void apply_activation(double *output_vector, int size, Activation activation);
 // i) Brute force learning for optimizing weights
 void bruteforce_learning(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer);
 // ii) Gradient descent learning for optimizing weights
-void gradient_descent(double *input, int input_size, double* expected_values, double learning_rate, uint32_t itr, Layer *layer);
+void gradient_descent(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer);
 
 // Data normalization
 void normalize_data(double *input_vector, double *output_vector, int LEN);
@@ -110,14 +120,13 @@ void relu(double *input_vector, double *output_vector, int length);
 void sigmoid(double *input_vector, double *output_vector, int length);
 
 // Derivative of activation function
-void softmax_p (double *input_vector, double *output_vector, int length);
-void relu_p (double *input_vector, double *output_vector, int lenght);
-void sigmoid_p (double *input_vector, double *output_vector, int lenght);
+void sigmoid_derivative(double *input_vector, double *output_vector, int length);
+void relu_derivative(double *input_vector, double *output_vector, int length);
+void softmax_derivative(double *input_vector, double *output_vector, int length);
 
 // Deep neural network forward pass
 void deep_nn(double *input_vector, int input_size, 
              double *output_vector, int output_size, 
              Layer *layers, int num_layers);
-
 
 #endif

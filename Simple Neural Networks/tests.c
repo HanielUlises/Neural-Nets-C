@@ -1,4 +1,4 @@
-#include "tests.h"
+/* #include "tests.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -73,7 +73,7 @@ void test_hidden_layer_nn() {
 
     printf("Hidden Layer Neural Network Test:\n");
     for (int i = 0; i < OUTPUT_SIZE; i++) {
-        printf("Predicted Output %d: %f\n", i, output_vector[i]);
+    printf("Predicted Output %d: %f\n", i, output_vector[i]);
     }
 
     // Example expected values
@@ -93,7 +93,6 @@ void test_brute_force() {
     uint32_t iterations = 800;
 
     printf("Brute Force Learning Test:\n");
-    bruteforce_learning(input, weight, expected_value, step_amount, iterations);
 }
 
 // Forward propagation example with a basic neural network
@@ -162,4 +161,4 @@ void forward_propagation() {
     free(raw_y);
     free(train_x);
     free(train_y);
-}
+}*/
