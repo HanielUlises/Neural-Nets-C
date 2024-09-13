@@ -82,6 +82,8 @@ void matrix_vector_multiplication(double *input_vector, int INPUT_LEN, double *o
 double find_error(double input, double weight, double expected_value);
 double find_error_simple(double yhat, double y);
 
+void apply_activation(double *output_vector, int size, Activation activation);
+
 // Neural network learning
 /// @param input represents the x-ith input from the X input set of the neural network
 /// @param weight represents the w-ith input from the W input set of the neural network
@@ -90,10 +92,9 @@ double find_error_simple(double yhat, double y);
 /// @param itr mu-th element 
 
 // i) Brute force learning for optimizing weights
-void bruteforce_learning(double input, double weight, double expected_values, double step_amount, uint32_t itr);
-
+void bruteforce_learning(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer);
 // ii) Gradient descent learning for optimizing weights
-void gradient_descent(double *input, double *weight, double expected_values, double step_amout, uint32_t itr, Layer *layer);
+void gradient_descent(double *input, int input_size, double* expected_values, double learning_rate, uint32_t itr, Layer *layer);
 
 // Data normalization
 void normalize_data(double *input_vector, double *output_vector, int LEN);
