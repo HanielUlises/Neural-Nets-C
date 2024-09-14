@@ -111,7 +111,7 @@ void forward_pass(NeuralNetwork *nn, double *input_vector) {
 
         for (int i = 0; i < layer->output_size; i++) {
             current_output[i] += layer->biases[i];
-
+            printf("Value %i output: %f\n", i, current_output[i]);
             switch (layer->activation) {
                 case RELU:
                     current_output[i] = fmax(0.0, current_output[i]);
@@ -332,7 +332,7 @@ void gradient_descent(double *input_vector, double *expected_values, double lear
         }
         apply_activation(output_vector, layer->output_size, layer->activation);
 
-        // Compute error and gradients
+        // Error and gradients
         for (int i = 0; i < layer->output_size; i++) {
             switch (layer->activation) {
                 case SOFTMAX:
