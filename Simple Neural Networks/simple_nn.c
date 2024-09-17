@@ -440,76 +440,6 @@ void random_weight_init_1D(double *output_vector, uint32_t LEN) {
     }
 }
 
-// Softmax function for normalizing outputs to probabilities
-void softmax(double *input_vector, double *output_vector, int length) {
-    double max = input_vector[0];
-    double sum = 0.0;
-
-    for (int i = 1; i < length; i++) {
-        if (input_vector[i] > max) {
-            max = input_vector[i];
-        }
-    }
-
-    for (int i = 0; i < length; i++) {
-        output_vector[i] = exp(input_vector[i] - max);
-        sum += output_vector[i];
-    }
-
-    for (int i = 0; i < length; i++) {
-        output_vector[i] /= sum;
-    }
-}
-
-// Activation functions (not explicitly used)
-// ReLU activation function
-void relu(double *input_vector, double *output_vector, int length) {
-    for (int i = 0; i < length; i++) {
-        output_vector[i] = fmax(0.0, input_vector[i]);
-    }
-}
-
-// Sigmoid activation function
-void sigmoid(double *input_vector, double *output_vector, int length) {
-    for (int i = 0; i < length; i++) {
-        output_vector[i] = 1.0 / (1.0 + exp(-input_vector[i]));
-    }
-}
-
-// Softmax function derivative for optimization
-void sigmoid_derivative(double *input_vector, double *output_vector, int length) {
-    for (int i = 0; i < length; i++) {
-        output_vector[i] = input_vector[i] * (1.0 - input_vector[i]);
-    }
-}
-
-void relu_derivative(double *input_vector, double *output_vector, int length){
-    for (int i = 0; i < length; i++) {
-        output_vector[i] = (input_vector[i] > 0) ? 1.0 : 0.0;
-    }
-}
-
-void softmax_derivative(double *input_vector, double *output_vector, int length) {
-    // placeholder    
-}
-
-void apply_derivative(double *output_vector, int size, Derivative derivative) {
-    switch (derivative) {
-        case RELU_P:
-            relu_derivative(output_vector, output_vector, size);
-            break;
-        case SIGMOID_P:
-            sigmoid_derivative(output_vector, output_vector, size);
-            break;
-        case SOFTMAX_P:
-            softmax_derivative(output_vector, output_vector, size);
-            break;
-        case NO_DERIVATIVE:
-            // Do nothing
-            break;
-    }
-}
-
 void backpropagation(NeuralNetwork *nn, double *input_vector, double *expected_values, double learning_rate) {
     int i, j, k;
 
@@ -633,5 +563,132 @@ void deep_nn(double *input_vector, int input_size,
     // If the final layer uses softmax, apply it to the final output
     if (layers[num_layers - 1].activation == SOFTMAX) {
         softmax(output_vector, output_vector, output_size);
+    }
+}
+
+// Activation functions and loss functions
+// i) Activation functions (not explicitly used right now)
+// Softmax function for normalizing outputs to probabilities
+void softmax(double *input_vector, double *output_vector, int length) {
+    double max = input_vector[0];
+    double sum = 0.0;
+
+    for (int i = 1; i < length; i++) {
+        if (input_vector[i] > max) {
+            max = input_vector[i];
+        }
+    }
+
+    for (int i = 0; i < length; i++) {
+        output_vector[i] = exp(input_vector[i] - max);
+        sum += output_vector[i];
+    }
+
+    for (int i = 0; i < length; i++) {
+        output_vector[i] /= sum;
+    }
+}
+
+void softmax_derivative(double *input_vector, double *output_vector, int length) {
+    // placeholder    
+}
+
+// ReLU activation function
+void relu(double *input_vector, double *output_vector, int length) {
+    for (int i = 0; i < length; i++) {
+        output_vector[i] = fmax(0.0, input_vector[i]);
+    }
+}
+
+void relu_derivative(double *input_vector, double *output_vector, int length){
+    for (int i = 0; i < length; i++) {
+        output_vector[i] = (input_vector[i] > 0) ? 1.0 : 0.0;
+    }
+}
+
+// Sigmoid activation function
+void sigmoid(double *input_vector, double *output_vector, int length) {
+    for (int i = 0; i < length; i++) {
+        output_vector[i] = 1.0 / (1.0 + exp(-input_vector[i]));
+    }
+}
+
+// Softmax function derivative for optimization
+void sigmoid_derivative(double *input_vector, double *output_vector, int length) {
+    for (int i = 0; i < length; i++) {
+        output_vector[i] = input_vector[i] * (1.0 - input_vector[i]);
+    }
+}
+
+void apply_derivative(double *output_vector, int size, Derivative derivative) {
+    switch (derivative) {
+        case RELU_P:
+            relu_derivative(output_vector, output_vector, size);
+            break;
+        case SIGMOID_P:
+            sigmoid_derivative(output_vector, output_vector, size);
+            break;
+        case SOFTMAX_P:
+            softmax_derivative(output_vector, output_vector, size);
+            break;
+        case NO_DERIVATIVE:
+            // Do nothing
+            break;
+    }
+}
+
+// ii) Loss functions
+// Mean Squared Error (MSE) Loss Function
+double mean_squared_error(double *predicted, double *actual, int size) {
+    double sum = 0.0;
+    for (int i = 0; i < size; i++) {
+        double error = predicted[i] - actual[i];
+        sum += error * error;
+    }
+    return sum / (double)size;
+}
+
+// Derivative of Mean Squared Error (MSE) for backpropagation
+void mean_squared_error_derivative(double *predicted, double *actual, double *derivative_out, int size) {
+    for (int i = 0; i < size; i++) {
+        derivative_out[i] = 2.0 * (predicted[i] - actual[i]) / size;
+    }
+}
+
+// Cross-Entropy Loss Function (for classification tasks)
+// (used with softmax)
+double cross_entropy_loss(double *predicted, double *actual, int size) {
+    double sum = 0.0;
+    for (int i = 0; i < size; i++) {
+        // As log(0) is an error, we will use a 
+        // infinitesimal number
+        double epsilon = 1e-12;
+        sum += -actual[i] * log(predicted[i] + epsilon);
+    }
+    return sum / (double)size;
+}
+
+// Derivative of Cross-Entropy Loss for backpropagation 
+// (used with softmax)
+void cross_entropy_loss_derivative(double *predicted, double *actual, double *derivative_out, int size) {
+    for (int i = 0; i < size; i++) {
+        derivative_out[i] = predicted[i] - actual[i];
+    }
+}
+
+double compute_loss(LossFunction loss_function, double *predicted, double *actual, int size) {
+    if (loss_function == MEAN_SQUARED_ERROR) {
+        return mean_squared_error(predicted, actual, size);
+    } else if (loss_function == CROSS_ENTROPY) {
+        return cross_entropy_loss(predicted, actual, size);
+    }
+    return 0.0; 
+}
+
+void compute_loss_derivative(LossFunction loss_function, double *predicted, double *actual, double *derivative_out, int size) {
+    if (loss_function == MEAN_SQUARED_ERROR) {
+        mean_squared_error_derivative(predicted, actual, derivative_out, size);
+    } else if (loss_function == CROSS_ENTROPY) {
+        cross_entropy_loss_derivative(predicted, actual, derivative_out, size);
     }
 }
