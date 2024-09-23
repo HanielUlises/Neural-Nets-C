@@ -1,29 +1,5 @@
 #include "simple_nn.h"
 
-// Multiply a single input by a weight to produce a single output.
-double single_in_single_out(double input, double weight) {
-    return input * weight;
-}
-
-// Weighted sum of multiple inputs against corresponding weights.
-double multiple_in_single_out(double* input, double* weight, int length) {
-    return weighted_sum(input, weight, length);
-}
-
-void single_in_multiple_out(double scalar, double* w_vect, double* out_vect, int length) {
-    element_wise_multiply(scalar, w_vect, out_vect, length);
-}
-
-// Computes the output vector from an input vector and a matrix of weights.
-void multiple_in_multiple_out(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double **weight_matrix) {
-    for (int i = 0; i < OUTPUT_LEN; i++) {
-        output_vector[i] = 0;
-        for (int j = 0; j < INPUT_LEN; j++) {
-            output_vector[i] += input_vector[j] * weight_matrix[j][i];
-        }
-    }
-}
-
 // Create a new layer with random weights and biases
 Layer create_layer(int input_size, int output_size, Activation activation) {
     Layer layer;
@@ -60,6 +36,43 @@ NeuralNetwork create_neural_network(int num_layers, int *layer_sizes, Activation
     nn.output_vector = (double *)malloc(layer_sizes[num_layers - 1] * sizeof(double));
 
     return nn;
+}
+
+Optimizer create_optimizer(OptimizerType type, double learning_rate, double momentum, double beta1, double beta2, double epsilon) {
+    Optimizer opt;
+    opt.type = type;
+    opt.learning_rate = learning_rate;
+    opt.momentum = momentum;
+    opt.beta1 = beta1;
+    opt.beta2 = beta2;
+    opt.epsilon = epsilon;
+
+    return opt;
+}
+
+
+// Multiply a single input by a weight to produce a single output.
+double single_in_single_out(double input, double weight) {
+    return input * weight;
+}
+
+// Weighted sum of multiple inputs against corresponding weights.
+double multiple_in_single_out(double* input, double* weight, int length) {
+    return weighted_sum(input, weight, length);
+}
+
+void single_in_multiple_out(double scalar, double* w_vect, double* out_vect, int length) {
+    element_wise_multiply(scalar, w_vect, out_vect, length);
+}
+
+// Computes the output vector from an input vector and a matrix of weights.
+void multiple_in_multiple_out(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double **weight_matrix) {
+    for (int i = 0; i < OUTPUT_LEN; i++) {
+        output_vector[i] = 0;
+        for (int j = 0; j < INPUT_LEN; j++) {
+            output_vector[i] += input_vector[j] * weight_matrix[j][i];
+        }
+    }
 }
 
 // Memory cleanup (destructors)
@@ -144,51 +157,7 @@ void forward_pass(NeuralNetwork *nn, double *input_vector) {
     }
 }
 
-// Matrix-vector multiplication
-void matrix_vector_multiplication(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double **weight_matrix) {
-    for (int i = 0; i < OUTPUT_LEN; i++) {
-        output_vector[i] = 0;
-        for (int j = 0; j < INPUT_LEN; j++) {
-            output_vector[i] += input_vector[j] * weight_matrix[i][j];
-        }
-    }
-}
 
-// Weighted sum of an array of inputs with an array of weights.
-double weighted_sum(double* input, double* weight, int length) {
-    double output = 0.0;
-    for (int i = 0; i < length; i++) {
-        output += input[i] * weight[i];
-    }
-    return output;
-}
-
-// Element-wise multiplication of a scalar with each element in a vector.
-void element_wise_multiply(double input_scalar, double* weight_vector, double* output_vector, int length) {
-    for (int i = 0; i < length; i++) {
-        output_vector[i] = input_scalar * weight_vector[i];
-    }
-}
-
-// Calculates squared error of a prediction based on input and expected value.
-double find_error(double input, double weight, double expected_value) {
-    return pow(((input * weight) - expected_value), 2);
-}
-
-// Simple squared error between prediction and actual value.
-double find_error_simple(double yhat, double y) {
-    return pow((yhat - y), 2);
-}
-
-// Function to compute the prediction based on input and weight
-double predict(double input, double weight) {
-    return input * weight;
-}
-
-// Function to compute squared error between prediction and expected value
-double compute_error(double prediction, double expected_value) {
-    return pow(prediction - expected_value, 2);
-}
 
 void apply_activation(double *output_vector, int size, Activation activation) {
     for (int i = 0; i < size; i++) {
@@ -317,57 +286,36 @@ void bruteforce_learning(double *input_vector, double *expected_values, double l
     free(current_biases);
 }
 
-void gradient_descent(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer) {
+void gradient_descent(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer, LossFunction loss_function) {
     double *output_vector = (double *)malloc(layer->output_size * sizeof(double));
     double *deltas = (double *)malloc(layer->output_size * sizeof(double));
     double *errors = (double *)malloc(layer->output_size * sizeof(double));
-    double *activation_derivative = (double *)malloc(layer->output_size * sizeof(double));
-    double error, activation_value;
+    
+    if (!output_vector || !deltas || !errors) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    double error;
 
     for (uint32_t iter = 0; iter < iterations; iter++) {
-        // Forward pass
+        // i) Forward pass
         matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
+
+        // ii) Adding bias and applying activation
         for (int i = 0; i < layer->output_size; i++) {
             output_vector[i] += layer->biases[i];
         }
+        // iii) Apply the activation function and compute loss derivative with respect to output
         apply_activation(output_vector, layer->output_size, layer->activation);
+        compute_loss_derivative(loss_function, output_vector, expected_values, errors, layer->output_size);
 
-        // Error and gradients
+        // iv) Calculate deltas (error * derivative of activation)
         for (int i = 0; i < layer->output_size; i++) {
-            switch (layer->activation) {
-                case SOFTMAX:
-                    softmax(output_vector, output_vector, layer->output_size);
-                    break;
-                default:
-                    break;
-            }
-
-            // Error for this layer
-            errors[i] = output_vector[i] - expected_values[i];
+            deltas[i] = errors[i] * activation_derivative(output_vector[i], layer->activation);
         }
 
-        // Calculate deltas
-        for (int i = 0; i < layer->output_size; i++) {
-            switch (layer->activation) {
-                case RELU:
-                    activation_derivative[i] = (output_vector[i] > 0) ? 1.0 : 0.0;
-                    break;
-                case SIGMOID:
-                    activation_value = output_vector[i];
-                    activation_derivative[i] = activation_value * (1 - activation_value);
-                    break;
-                case SOFTMAX:
-                    // SOFTMAX DERIVATIVE STILL PENDING 
-                    softmax_derivative(output_vector, deltas, layer->output_size);
-                    break;
-                default:
-                    activation_derivative[i] = 1.0;
-                    break;
-            }
-            deltas[i] = errors[i] * activation_derivative[i];
-        }
-
-        // Update weights and biases
+        // v) Update weights and biases using the deltas
         for (int i = 0; i < layer->output_size; i++) {
             for (int j = 0; j < layer->input_size; j++) {
                 layer->weights[i][j] -= learning_rate * deltas[i] * input_vector[j];
@@ -375,18 +323,17 @@ void gradient_descent(double *input_vector, double *expected_values, double lear
             layer->biases[i] -= learning_rate * deltas[i];
         }
 
-        error = 0.0;
-        for (int i = 0; i < layer->output_size; i++) {
-            error += pow(errors[i], 2);
+        if (iter % 100 == 0) {
+            error = compute_loss(loss_function, output_vector, expected_values, layer->output_size);
+            printf("Iteration %u: Loss = %f\n", iter, error);
         }
-        printf("Iteration %u: Error = %f\n", iter, error);
     }
 
     free(output_vector);
     free(deltas);
     free(errors);
-    free(activation_derivative);
 }
+
 
 // Normalize data by dividing each element base on the max value
 void normalize_data(double *input_vector, double *output_vector, int LEN) {
@@ -690,5 +637,51 @@ void compute_loss_derivative(LossFunction loss_function, double *predicted, doub
         mean_squared_error_derivative(predicted, actual, derivative_out, size);
     } else if (loss_function == CROSS_ENTROPY) {
         cross_entropy_loss_derivative(predicted, actual, derivative_out, size);
+    }
+}
+
+// Optimization
+void update_weights(Optimizer *optimizer, double *weights, double *gradients, int length) {
+    if (optimizer->type == SGD) {
+        // Stochastic Gradient Descent (SGD) update
+        for (int i = 0; i < length; i++) {
+            weights[i] -= optimizer->learning_rate * gradients[i];
+        }
+    } else if (optimizer->type == MOMENTUM) {
+        if (momentum_velocity == NULL) {
+            momentum_velocity = (double *)malloc(length * sizeof(double));
+            // Start velocity with 0
+            memset(momentum_velocity, 0, length * sizeof(double));
+        }
+
+        for (int i = 0; i < length; i++) {
+            // Update velocity: v = momentum * v - learning_rate * gradient
+            momentum_velocity[i] = optimizer->momentum * momentum_velocity[i] - optimizer->learning_rate * gradients[i];
+
+            // Update weight: w = w + v
+            weights[i] += momentum_velocity[i];
+        }
+    } else if (optimizer->type == ADAM) {
+        if (m_t == NULL || v_t == NULL) {
+            m_t = (double *)malloc(length * sizeof(double));
+            v_t = (double *)malloc(length * sizeof(double));
+            memset(m_t, 0, length * sizeof(double)); // First moment estimate to zero
+            memset(v_t, 0, length * sizeof(double)); // Second moment estimate to zero
+        }
+
+        for (int i = 0; i < length; i++) {
+            // Update biased first moment estimate: m_t = beta1 * m_t + (1 - beta1) * gradient
+            m_t[i] = optimizer->beta1 * m_t[i] + (1 - optimizer->beta1) * gradients[i];
+
+            // Update biased second moment estimate: v_t = beta2 * v_t + (1 - beta2) * (gradient^2)
+            v_t[i] = optimizer->beta2 * v_t[i] + (1 - optimizer->beta2) * gradients[i] * gradients[i];
+
+            // Compute bias-corrected first and second moment estimates
+            double m_t_hat = m_t[i] / (1 - pow(optimizer->beta1, 2)); // Unbiased first moment
+            double v_t_hat = v_t[i] / (1 - pow(optimizer->beta2, 2)); // Unbiased second moment
+
+            // Update weights: w = w - learning_rate * m_t_hat / (sqrt(v_t_hat) + epsilon)
+            weights[i] -= optimizer->learning_rate * m_t_hat / (sqrt(v_t_hat) + optimizer->epsilon);
+        }
     }
 }

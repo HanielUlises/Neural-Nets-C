@@ -20,6 +20,34 @@
 #define NUM_OF_HID_NODES 3
 #define NUM_OF_OUT_NODES 1
 
+static double *momentum_velocity = NULL; // Velocity for momentum-based methods
+static double *m_t = NULL; // First moment estimate for Adam
+static double *v_t = NULL; // Second moment estimate for Adam
+
+typedef enum {
+    CONSTANT,
+    STEP_DECAY,
+    EXPONENTIAL_DECAY
+} LearningRateSchedule;
+
+typedef struct {
+    LearningRateSchedule schedule;
+    double initial_lr;
+    int step_size;
+    double decay_rate;
+} LearningRate;
+
+typedef enum {
+    NONE,
+    L1,
+    L2
+} RegularizationType;
+
+typedef struct {
+    RegularizationType reg_type;
+    double lambda; // Regularization strength
+} Regularizer;
+
 // Loss Functions
 typedef enum {
     MEAN_SQUARED_ERROR,
@@ -33,6 +61,21 @@ typedef enum {
     SOFTMAX_P,
     NO_DERIVATIVE
 } Derivative;
+
+typedef enum {
+    SGD,            // Stochastic Gradient Descent
+    MOMENTUM,       // Gradient Descent with Momentum
+    ADAM            // Adaptive Moment Estimation
+} OptimizerType;
+
+typedef struct {
+    OptimizerType type;
+    double learning_rate;
+    double momentum; // For momentum-based optimizers
+    double beta1;    // For Adam optimizer
+    double beta2;    // For Adam optimizer
+    double epsilon;  // Small constant to avoid division by zero
+} Optimizer;
 
 // Activation function type for flexibility
 typedef enum {
@@ -110,7 +153,7 @@ void apply_activation(double *output_vector, int size, Activation activation);
 // i) Brute force learning for optimizing weights
 void bruteforce_learning(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer);
 // ii) Gradient descent learning for optimizing weights
-void gradient_descent(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer);
+void gradient_descent(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer, LossFunction loss_function);
 
 // Backpropagation to compute gradients and adjust weights
 void backpropagation(NeuralNetwork *nn, double *input_vector, double *expected_values, double learning_rate);
@@ -136,9 +179,16 @@ void softmax_derivative(double *input_vector, double *output_vector, int length)
 // listing
 void apply_derivative(double *output_vector, int size, Derivative derivative);
 
+double compute_loss(LossFunction loss_function, double *predicted, double *actual, int size);
+void compute_loss_derivative(LossFunction loss_function, double *predicted, double *actual, double *derivative_out, int size);
+
 // Deep neural network forward pass
 void deep_nn(double *input_vector, int input_size, 
              double *output_vector, int output_size, 
              Layer *layers, int num_layers);
+
+// Optimization 
+void update_weights(Optimizer *optimizer, double *weights, double *gradients, int length);
+Optimizer create_optimizer(OptimizerType type, double learning_rate, double momentum, double beta1, double beta2, double epsilon);
 
 #endif
