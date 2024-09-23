@@ -58,6 +58,7 @@
   "C_Cpp_Runner.msvcSecureNoWarnings": false,
   "files.associations": {
     "simple_nn.h": "c",
-    "stdint.h": "c"
+    "stdint.h": "c",
+    "lin_alg.h": "c"
   }
 }

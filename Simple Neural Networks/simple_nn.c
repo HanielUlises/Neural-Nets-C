@@ -1,4 +1,5 @@
 #include "simple_nn.h"
+#include "lin_alg.h"
 
 // Create a new layer with random weights and biases
 Layer create_layer(int input_size, int output_size, Activation activation) {
