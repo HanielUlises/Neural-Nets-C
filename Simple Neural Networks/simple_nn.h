@@ -24,12 +24,14 @@ static double *momentum_velocity = NULL; // Velocity for momentum-based methods
 static double *m_t = NULL; // First moment estimate for Adam
 static double *v_t = NULL; // Second moment estimate for Adam
 
+// Enum for learning rate scheduling
 typedef enum {
     CONSTANT,
     STEP_DECAY,
     EXPONENTIAL_DECAY
 } LearningRateSchedule;
 
+// Learning rate structure
 typedef struct {
     LearningRateSchedule schedule;
     double initial_lr;
@@ -37,18 +39,20 @@ typedef struct {
     double decay_rate;
 } LearningRate;
 
+// Enum for regularization types
 typedef enum {
     NONE,
     L1,
     L2
 } RegularizationType;
 
+// Regularization structure
 typedef struct {
     RegularizationType reg_type;
     double lambda; // Regularization strength
 } Regularizer;
 
-// Loss Functions
+// Loss function types
 typedef enum {
     MEAN_SQUARED_ERROR,
     CROSS_ENTROPY
@@ -62,12 +66,14 @@ typedef enum {
     NO_DERIVATIVE
 } Derivative;
 
+// Optimizer types
 typedef enum {
     SGD,            // Stochastic Gradient Descent
     MOMENTUM,       // Gradient Descent with Momentum
     ADAM            // Adaptive Moment Estimation
 } OptimizerType;
 
+// Optimizer structure
 typedef struct {
     OptimizerType type;
     double learning_rate;
@@ -77,7 +83,7 @@ typedef struct {
     double epsilon;  // Small constant to avoid division by zero
 } Optimizer;
 
-// Activation function type for flexibility
+// Activation function types
 typedef enum {
     RELU,
     SIGMOID,
@@ -115,44 +121,8 @@ void destroy_neural_network(NeuralNetwork *nn);
 // Perform forward pass through the neural network
 void forward_pass(NeuralNetwork *nn, double *input_vector);
 
-// Multiply a single input by a weight to produce a single output
-double single_in_single_out(double input, double weight);
-
-// Weighted sum of multiple inputs against corresponding weights
-double multiple_in_single_out(double* input, double* weight, int length);
-
-// Single scalar input producing multiple outputs
-void single_in_multiple_out(double scalar, double* w_vect, double* out_vect, int length);
-
-// Multiple inputs producing multiple outputs
-void multiple_in_multiple_out(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double **weight_matrix);
-
-// Element-wise multiplication of a scalar with each element in a vector.
-void element_wise_multiply(double input_scalar, double* weight_vector, double* output_vector, int length);
-
-// Neural network hidden layer transformation
-void hidden_layer_nn(double *input_vector, Layer *hidden_layer, Layer *output_layer, double *output_vector);
-
-// Utility functions for operations like matrix multiplication and error calculations
-double weighted_sum(double *input, double *weight, int length);
-void matrix_vector_multiplication(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double **weight_matrix);
-
-// Error calculation functions
-double find_error(double input, double weight, double expected_value);
-double find_error_simple(double yhat, double y);
-
-void apply_activation(double *output_vector, int size, Activation activation);
-
 // Neural network learning
-/// @param input represents the x-ith input from the X input set of the neural network
-/// @param weight represents the w-ith input from the W input set of the neural network
-/// @param expected_values represent the y actual value that we expect
-/// @param stemp_ampunt learning rate 
-/// @param itr mu-th element 
-
-// i) Brute force learning for optimizing weights
 void bruteforce_learning(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer);
-// ii) Gradient descent learning for optimizing weights
 void gradient_descent(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer, LossFunction loss_function);
 
 // Backpropagation to compute gradients and adjust weights
@@ -171,14 +141,12 @@ void softmax(double *input_vector, double *output_vector, int length);
 void relu(double *input_vector, double *output_vector, int length);
 void sigmoid(double *input_vector, double *output_vector, int length);
 
-// Derivative of activation function
+// Derivative of activation functions
 void sigmoid_derivative(double *input_vector, double *output_vector, int length);
 void relu_derivative(double *input_vector, double *output_vector, int length);
 void softmax_derivative(double *input_vector, double *output_vector, int length);
 
-// listing
-void apply_derivative(double *output_vector, int size, Derivative derivative);
-
+// Loss and loss derivative
 double compute_loss(LossFunction loss_function, double *predicted, double *actual, int size);
 void compute_loss_derivative(LossFunction loss_function, double *predicted, double *actual, double *derivative_out, int size);
 
@@ -190,5 +158,9 @@ void deep_nn(double *input_vector, int input_size,
 // Optimization 
 void update_weights(Optimizer *optimizer, double *weights, double *gradients, int length);
 Optimizer create_optimizer(OptimizerType type, double learning_rate, double momentum, double beta1, double beta2, double epsilon);
+
+
+static void apply_activation(double *output_vector, int size, Activation activation);
+static void apply_derivative(double *output_vector, int size, Derivative derivative);
 
 #endif

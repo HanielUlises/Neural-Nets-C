@@ -160,7 +160,7 @@ void forward_pass(NeuralNetwork *nn, double *input_vector) {
 
 
 
-void apply_activation(double *output_vector, int size, Activation activation) {
+static void apply_activation(double *output_vector, int size, Activation activation) {
     for (int i = 0; i < size; i++) {
         switch (activation) {
             case RELU:
@@ -568,7 +568,7 @@ void sigmoid_derivative(double *input_vector, double *output_vector, int length)
     }
 }
 
-void apply_derivative(double *output_vector, int size, Derivative derivative) {
+static void apply_derivative(double *output_vector, int size, Derivative derivative){
     switch (derivative) {
         case RELU_P:
             relu_derivative(output_vector, output_vector, size);
