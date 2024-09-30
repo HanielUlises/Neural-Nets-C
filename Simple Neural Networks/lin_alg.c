@@ -36,7 +36,7 @@ void matrix_vector_multiplication(double *input_vector, int INPUT_LEN, double *o
 }
 
 // Weighted sum of an array of inputs with an array of weights.
-static double weighted_sum(double* input, double* weight, int length) {
+double weighted_sum(double* input, double* weight, int length) {
     double output = 0.0;
     for (int i = 0; i < length; i++) {
         output += input[i] * weight[i];
@@ -45,7 +45,7 @@ static double weighted_sum(double* input, double* weight, int length) {
 }
 
 // Element-wise multiplication of a scalar with each element in a vector.
-static void element_wise_multiply(double input_scalar, double* weight_vector, double* output_vector, int length) {
+void element_wise_multiply(double input_scalar, double* weight_vector, double* output_vector, int length) {
     for (int i = 0; i < length; i++) {
         output_vector[i] = input_scalar * weight_vector[i];
     }

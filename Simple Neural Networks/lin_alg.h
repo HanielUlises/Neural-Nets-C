@@ -38,3 +38,7 @@ void matrix_vector_addition(double **matrix, double *vector, int rows, int cols)
 // Printing utilities (debug)
 void print_matrix(double **matrix, int rows, int cols);
 void print_vector(double *vector, int length);
+
+
+double weighted_sum(double* input, double* weight, int length);
+void element_wise_multiply(double input_scalar, double* weight_vector, double* output_vector, int length);

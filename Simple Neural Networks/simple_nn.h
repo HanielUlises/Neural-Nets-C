@@ -1,24 +1,16 @@
-#pragma once
-
 #ifndef SIMPLE_NN_H
 #define SIMPLE_NN_H
 
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 #include <stdio.h>
 #include <math.h>
 #include <float.h>
-
-// Constants for the neural network
-#define NUM_FEATURES 3
-#define NUM_EXAMPLES 3
-#define OUTPUTS 3
-#define HIDDEN_SIZE 3
-#define INPUT_SIZE 3
-#define OUTPUT_SIZE 3
-#define NUM_OF_HID_NODES 3
-#define NUM_OF_OUT_NODES 1
+#include <limits.h>
+ 
+#include "lin_alg.h"
 
 static double *momentum_velocity = NULL; // Velocity for momentum-based methods
 static double *m_t = NULL; // First moment estimate for Adam
@@ -99,6 +91,7 @@ typedef struct {
     double *biases;        // Bias vector for the layer
     Activation activation; // Activation function used in the layer
     Derivative derivative; // Derivative function used in backpropagation
+    LossFunction loss_func;
 } Layer;
 
 // Neural Network structure, contains an array of layers
@@ -156,7 +149,7 @@ void deep_nn(double *input_vector, int input_size,
              Layer *layers, int num_layers);
 
 // Optimization 
-void update_weights(Optimizer *optimizer, double *weights, double *gradients, int length);
+void update_weights(Optimizer *optimizer, double *weights, double *gradients, int length, Regularizer *regularizer);
 Optimizer create_optimizer(OptimizerType type, double learning_rate, double momentum, double beta1, double beta2, double epsilon);
 
 

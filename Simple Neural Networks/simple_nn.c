@@ -1,5 +1,4 @@
 #include "simple_nn.h"
-#include "lin_alg.h"
 
 // Create a new layer with random weights and biases
 Layer create_layer(int input_size, int output_size, Activation activation) {
@@ -51,31 +50,6 @@ Optimizer create_optimizer(OptimizerType type, double learning_rate, double mome
     return opt;
 }
 
-
-// Multiply a single input by a weight to produce a single output.
-double single_in_single_out(double input, double weight) {
-    return input * weight;
-}
-
-// Weighted sum of multiple inputs against corresponding weights.
-double multiple_in_single_out(double* input, double* weight, int length) {
-    return weighted_sum(input, weight, length);
-}
-
-void single_in_multiple_out(double scalar, double* w_vect, double* out_vect, int length) {
-    element_wise_multiply(scalar, w_vect, out_vect, length);
-}
-
-// Computes the output vector from an input vector and a matrix of weights.
-void multiple_in_multiple_out(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double **weight_matrix) {
-    for (int i = 0; i < OUTPUT_LEN; i++) {
-        output_vector[i] = 0;
-        for (int j = 0; j < INPUT_LEN; j++) {
-            output_vector[i] += input_vector[j] * weight_matrix[j][i];
-        }
-    }
-}
-
 // Memory cleanup (destructors)
 void destroy_layer(Layer *layer) {
     for (int i = 0; i < layer->output_size; i++) {
@@ -91,6 +65,9 @@ void destroy_neural_network(NeuralNetwork *nn) {
     }
     free(nn->layers);
     free(nn->output_vector);
+    free(momentum_velocity);
+    free(m_t);
+    free(v_t);
 }
 
 /**
@@ -181,12 +158,21 @@ static void apply_activation(double *output_vector, int size, Activation activat
 // Brute force learning to find a better weight for a specific layer
 void bruteforce_learning(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer) {
     double *output_vector = (double *)malloc(layer->output_size * sizeof(double));
+    if (!output_vector) {
+        fprintf(stderr, "Memory allocation failed for output_vector\n");
+        exit(EXIT_FAILURE);
+    }
+
     double *best_weights = (double *)malloc(layer->input_size * sizeof(double));
     double *current_weights = (double *)malloc(layer->input_size * sizeof(double));
     double *best_biases = (double *)malloc(layer->output_size * sizeof(double));
     double *current_biases = (double *)malloc(layer->output_size * sizeof(double));
-    double min_error;
+    if (!best_weights || !current_weights || !best_biases || !current_biases) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
 
+    // Initialize best weights and biases
     for (int i = 0; i < layer->output_size; i++) {
         best_biases[i] = layer->biases[i];
         for (int j = 0; j < layer->input_size; j++) {
@@ -196,48 +182,45 @@ void bruteforce_learning(double *input_vector, double *expected_values, double l
 
     for (uint32_t iter = 0; iter < iterations; iter++) {
         // We're going to try perturbations in weights and biases
-        // Start with a very high minimum error
-        min_error = INFINITY; 
+        double min_error = DBL_MAX;  // Start with a very high minimum error
 
         for (int i = 0; i < layer->output_size; i++) {
             for (int j = 0; j < layer->input_size; j++) {
-                // Save current weight
+                // Save current weight and bias
                 current_weights[j] = layer->weights[i][j];
             }
             // Save current bias
             current_biases[i] = layer->biases[i];
         }
 
+        // Testing perturbations for weights and biases
         for (int i = 0; i < layer->output_size; i++) {
             for (int j = 0; j < layer->input_size; j++) {
                 // Testing weight increment
                 layer->weights[i][j] = current_weights[j] + learning_rate;
                 matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
                 apply_activation(output_vector, layer->output_size, layer->activation);
-                double error_up = 0;
-                for (int k = 0; k < layer->output_size; k++) {
-                    error_up += compute_error(output_vector[k], expected_values[k]);
-                }
+                double error_up = compute_loss(layer->loss_func, output_vector, expected_values, layer->output_size);
 
                 // Testing weight decrement
                 layer->weights[i][j] = current_weights[j] - learning_rate;
                 matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
                 apply_activation(output_vector, layer->output_size, layer->activation);
-                double error_down = 0;
-                for (int k = 0; k < layer->output_size; k++) {
-                    error_down += compute_error(output_vector[k], expected_values[k]);
-                }
+                double error_down = compute_loss(layer->loss_func, output_vector, expected_values, layer->output_size);
 
                 // Choose the best weight
                 if (error_down < min_error) {
                     min_error = error_down;
-                    best_weights[j] = layer->weights[i][j] - learning_rate;
+                    best_weights[j] = current_weights[j] - learning_rate;
                 } else if (error_up < min_error) {
                     min_error = error_up;
-                    best_weights[j] = layer->weights[i][j] + learning_rate;
+                    best_weights[j] = current_weights[j] + learning_rate;
                 } else {
-                    best_weights[j] = current_weights[j];
+                    best_weights[j] = current_weights[j]; // Restore to current if no better found
                 }
+
+                // Restore the weight after testing
+                layer->weights[i][j] = current_weights[j];
             }
 
             // Bias perturbation
@@ -245,19 +228,14 @@ void bruteforce_learning(double *input_vector, double *expected_values, double l
             layer->biases[i] = current_biases[i] + learning_rate;
             matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
             apply_activation(output_vector, layer->output_size, layer->activation);
-            double error_up_bias = 0;
-            for (int k = 0; k < layer->output_size; k++) {
-                error_up_bias += compute_error(output_vector[k], expected_values[k]);
-            }
+            double error_up_bias = compute_loss(layer->loss_func, output_vector, expected_values, layer->output_size);
 
             layer->biases[i] = current_biases[i] - learning_rate;
             matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
             apply_activation(output_vector, layer->output_size, layer->activation);
-            double error_down_bias = 0;
-            for (int k = 0; k < layer->output_size; k++) {
-                error_down_bias += compute_error(output_vector[k], expected_values[k]);
-            }
+            double error_down_bias = compute_loss(layer->loss_func, output_vector, expected_values, layer->output_size);
 
+            // Choose the best bias
             if (error_down_bias < min_error) {
                 min_error = error_down_bias;
                 best_bias = current_biases[i] - learning_rate;
@@ -266,7 +244,7 @@ void bruteforce_learning(double *input_vector, double *expected_values, double l
                 best_bias = current_biases[i] + learning_rate;
             }
 
-            // Update the best biases
+            // Update the best biases found
             layer->biases[i] = best_bias;
         }
 
@@ -291,7 +269,7 @@ void gradient_descent(double *input_vector, double *expected_values, double lear
     double *output_vector = (double *)malloc(layer->output_size * sizeof(double));
     double *deltas = (double *)malloc(layer->output_size * sizeof(double));
     double *errors = (double *)malloc(layer->output_size * sizeof(double));
-    
+
     if (!output_vector || !deltas || !errors) {
         fprintf(stderr, "Memory allocation failed\n");
         exit(EXIT_FAILURE);
@@ -303,20 +281,24 @@ void gradient_descent(double *input_vector, double *expected_values, double lear
         // i) Forward pass
         matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
 
-        // ii) Adding bias and applying activation
+        // ii) Adding bias
         for (int i = 0; i < layer->output_size; i++) {
             output_vector[i] += layer->biases[i];
         }
-        // iii) Apply the activation function and compute loss derivative with respect to output
+
+        // iii) Apply the activation function
         apply_activation(output_vector, layer->output_size, layer->activation);
+
+        // iv) Compute loss derivative with respect to output
         compute_loss_derivative(loss_function, output_vector, expected_values, errors, layer->output_size);
 
-        // iv) Calculate deltas (error * derivative of activation)
+        // v) Calculate deltas (error * derivative of activation)
+        apply_derivative(output_vector, layer->output_size, layer->activation); // Get derivatives
         for (int i = 0; i < layer->output_size; i++) {
-            deltas[i] = errors[i] * activation_derivative(output_vector[i], layer->activation);
+            deltas[i] = errors[i] * output_vector[i]; // Multiply error by derivative
         }
 
-        // v) Update weights and biases using the deltas
+        // vi) Update weights and biases using the deltas
         for (int i = 0; i < layer->output_size; i++) {
             for (int j = 0; j < layer->input_size; j++) {
                 layer->weights[i][j] -= learning_rate * deltas[i] * input_vector[j];
@@ -642,16 +624,24 @@ void compute_loss_derivative(LossFunction loss_function, double *predicted, doub
 }
 
 // Optimization
-void update_weights(Optimizer *optimizer, double *weights, double *gradients, int length) {
+void update_weights(Optimizer *optimizer, double *weights, double *gradients, int length, Regularizer *regularizer) {
     if (optimizer->type == SGD) {
         // Stochastic Gradient Descent (SGD) update
         for (int i = 0; i < length; i++) {
             weights[i] -= optimizer->learning_rate * gradients[i];
+
+            // Apply L1 regularization
+            if (regularizer->reg_type == L1) {
+                weights[i] -= regularizer->lambda * (weights[i] > 0 ? 1 : -1);
+            }
+            // Apply L2 regularization
+            else if (regularizer->reg_type == L2) {
+                weights[i] -= regularizer->lambda * weights[i];
+            }
         }
     } else if (optimizer->type == MOMENTUM) {
         if (momentum_velocity == NULL) {
             momentum_velocity = (double *)malloc(length * sizeof(double));
-            // Start velocity with 0
             memset(momentum_velocity, 0, length * sizeof(double));
         }
 
@@ -661,6 +651,15 @@ void update_weights(Optimizer *optimizer, double *weights, double *gradients, in
 
             // Update weight: w = w + v
             weights[i] += momentum_velocity[i];
+
+            // Apply L1 regularization
+            if (regularizer->reg_type == L1) {
+                weights[i] -= regularizer->lambda * (weights[i] > 0 ? 1 : -1);
+            }
+            // Apply L2 regularization
+            else if (regularizer->reg_type == L2) {
+                weights[i] -= regularizer->lambda * weights[i];
+            }
         }
     } else if (optimizer->type == ADAM) {
         if (m_t == NULL || v_t == NULL) {
@@ -675,7 +674,7 @@ void update_weights(Optimizer *optimizer, double *weights, double *gradients, in
             m_t[i] = optimizer->beta1 * m_t[i] + (1 - optimizer->beta1) * gradients[i];
 
             // Update biased second moment estimate: v_t = beta2 * v_t + (1 - beta2) * (gradient^2)
-            v_t[i] = optimizer->beta2 * v_t[i] + (1 - optimizer->beta2) * gradients[i] * gradients[i];
+            v_t[i] = optimizer->beta2 * v_t[i] + (1 - optimizer->beta2) * (gradients[i] * gradients[i]);
 
             // Compute bias-corrected first and second moment estimates
             double m_t_hat = m_t[i] / (1 - pow(optimizer->beta1, 2)); // Unbiased first moment
@@ -683,6 +682,15 @@ void update_weights(Optimizer *optimizer, double *weights, double *gradients, in
 
             // Update weights: w = w - learning_rate * m_t_hat / (sqrt(v_t_hat) + epsilon)
             weights[i] -= optimizer->learning_rate * m_t_hat / (sqrt(v_t_hat) + optimizer->epsilon);
+
+            // Apply L1 regularization
+            if (regularizer->reg_type == L1) {
+                weights[i] -= regularizer->lambda * (weights[i] > 0 ? 1 : -1);
+            }
+            // Apply L2 regularization
+            else if (regularizer->reg_type == L2) {
+                weights[i] -= regularizer->lambda * weights[i];
+            }
         }
     }
 }
