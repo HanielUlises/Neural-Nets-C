@@ -70,73 +70,6 @@ void destroy_neural_network(NeuralNetwork *nn) {
     free(v_t);
 }
 
-/**
- * Performs a forward pass through a deep neural network with n layers.
- * This function computes the output of the network given an input vector, a list of layers, and their sizes.
- * 
- * @param nn Pointer to the NeuralNetwork structure that contains the layers, weights, biases, and activation functions.
- * @param input_vector Pointer to the input data vector, which represents the X input features to the network.
- * 
- * Process:
- * 1. Iterates through each layer of the neural network.
- * 2. For each layer:
- *    - Computes the weighted sum of inputs by performing matrix-vector multiplication.
- *    - Adds biases to the result.
- *    - Applies the specified activation function (e.g., RELU, SIGMOID, SOFTMAX).
- * 3. Passes the resulting output to the next layer as the input.
- * 4. Stores the final output of the network in the `nn->output_vector`.
- * 5. If the output layer uses the SOFTMAX activation function, it applies the Softmax function to the final output.
- * 
- * @note Ensure that the NeuralNetwork struct is properly initialized before invoking this function, i mean, its obvious.
- */
-
-void forward_pass(NeuralNetwork *nn, double *input_vector) {
-    double *current_input = input_vector;
-    double *current_output = NULL;
-
-    for (int layer_idx = 0; layer_idx < nn->num_layers; layer_idx++) {
-        Layer *layer = &nn->layers[layer_idx];
-        current_output = (double *)malloc(layer->output_size * sizeof(double));
-
-        matrix_vector_multiplication(current_input, layer->input_size, current_output, layer->output_size, layer->weights);
-
-        for (int i = 0; i < layer->output_size; i++) {
-            current_output[i] += layer->biases[i];
-            printf("Value %i output: %f\n", i, current_output[i]);
-            switch (layer->activation) {
-                case RELU:
-                    current_output[i] = fmax(0.0, current_output[i]);
-                    break;
-                case SIGMOID:
-                    current_output[i] = 1.0 / (1.0 + exp(-current_output[i]));
-                    break;
-                case SOFTMAX:
-                    // Softmax will be applied at the output layer
-                    break;
-                case NO_ACTIVATION:
-                    // No activation
-                    break;
-            }
-        }
-
-        if (layer_idx == nn->num_layers - 1) {
-            for (int i = 0; i < layer->output_size; i++) {
-                nn->output_vector[i] = current_output[i];
-            }
-        } else {
-            current_input = current_output;
-        }
-
-        free(current_output);
-    }
-
-    if (nn->layers[nn->num_layers - 1].activation == SOFTMAX) {
-        softmax(nn->output_vector, nn->output_vector, nn->layers[nn->num_layers - 1].output_size);
-    }
-}
-
-
-
 static void apply_activation(double *output_vector, int size, Activation activation) {
     for (int i = 0; i < size; i++) {
         switch (activation) {
@@ -153,170 +86,6 @@ static void apply_activation(double *output_vector, int size, Activation activat
         }
     }
 }
-
-
-// Brute force learning to find a better weight for a specific layer
-void bruteforce_learning(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer) {
-    double *output_vector = (double *)malloc(layer->output_size * sizeof(double));
-    if (!output_vector) {
-        fprintf(stderr, "Memory allocation failed for output_vector\n");
-        exit(EXIT_FAILURE);
-    }
-
-    double *best_weights = (double *)malloc(layer->input_size * sizeof(double));
-    double *current_weights = (double *)malloc(layer->input_size * sizeof(double));
-    double *best_biases = (double *)malloc(layer->output_size * sizeof(double));
-    double *current_biases = (double *)malloc(layer->output_size * sizeof(double));
-    if (!best_weights || !current_weights || !best_biases || !current_biases) {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    // Initialize best weights and biases
-    for (int i = 0; i < layer->output_size; i++) {
-        best_biases[i] = layer->biases[i];
-        for (int j = 0; j < layer->input_size; j++) {
-            best_weights[j] = layer->weights[i][j];
-        }
-    }
-
-    for (uint32_t iter = 0; iter < iterations; iter++) {
-        // We're going to try perturbations in weights and biases
-        double min_error = DBL_MAX;  // Start with a very high minimum error
-
-        for (int i = 0; i < layer->output_size; i++) {
-            for (int j = 0; j < layer->input_size; j++) {
-                // Save current weight and bias
-                current_weights[j] = layer->weights[i][j];
-            }
-            // Save current bias
-            current_biases[i] = layer->biases[i];
-        }
-
-        // Testing perturbations for weights and biases
-        for (int i = 0; i < layer->output_size; i++) {
-            for (int j = 0; j < layer->input_size; j++) {
-                // Testing weight increment
-                layer->weights[i][j] = current_weights[j] + learning_rate;
-                matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
-                apply_activation(output_vector, layer->output_size, layer->activation);
-                double error_up = compute_loss(layer->loss_func, output_vector, expected_values, layer->output_size);
-
-                // Testing weight decrement
-                layer->weights[i][j] = current_weights[j] - learning_rate;
-                matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
-                apply_activation(output_vector, layer->output_size, layer->activation);
-                double error_down = compute_loss(layer->loss_func, output_vector, expected_values, layer->output_size);
-
-                // Choose the best weight
-                if (error_down < min_error) {
-                    min_error = error_down;
-                    best_weights[j] = current_weights[j] - learning_rate;
-                } else if (error_up < min_error) {
-                    min_error = error_up;
-                    best_weights[j] = current_weights[j] + learning_rate;
-                } else {
-                    best_weights[j] = current_weights[j]; // Restore to current if no better found
-                }
-
-                // Restore the weight after testing
-                layer->weights[i][j] = current_weights[j];
-            }
-
-            // Bias perturbation
-            double best_bias = current_biases[i];
-            layer->biases[i] = current_biases[i] + learning_rate;
-            matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
-            apply_activation(output_vector, layer->output_size, layer->activation);
-            double error_up_bias = compute_loss(layer->loss_func, output_vector, expected_values, layer->output_size);
-
-            layer->biases[i] = current_biases[i] - learning_rate;
-            matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
-            apply_activation(output_vector, layer->output_size, layer->activation);
-            double error_down_bias = compute_loss(layer->loss_func, output_vector, expected_values, layer->output_size);
-
-            // Choose the best bias
-            if (error_down_bias < min_error) {
-                min_error = error_down_bias;
-                best_bias = current_biases[i] - learning_rate;
-            } else if (error_up_bias < min_error) {
-                min_error = error_up_bias;
-                best_bias = current_biases[i] + learning_rate;
-            }
-
-            // Update the best biases found
-            layer->biases[i] = best_bias;
-        }
-
-        // Apply the best weights found
-        for (int i = 0; i < layer->output_size; i++) {
-            for (int j = 0; j < layer->input_size; j++) {
-                layer->weights[i][j] = best_weights[j];
-            }
-        }
-
-        printf("Iteration %u: Minimum Error = %f\n", iter, min_error);
-    }
-
-    free(output_vector);
-    free(best_weights);
-    free(current_weights);
-    free(best_biases);
-    free(current_biases);
-}
-
-void gradient_descent(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer, LossFunction loss_function) {
-    double *output_vector = (double *)malloc(layer->output_size * sizeof(double));
-    double *deltas = (double *)malloc(layer->output_size * sizeof(double));
-    double *errors = (double *)malloc(layer->output_size * sizeof(double));
-
-    if (!output_vector || !deltas || !errors) {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    double error;
-
-    for (uint32_t iter = 0; iter < iterations; iter++) {
-        // i) Forward pass
-        matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
-
-        // ii) Adding bias
-        for (int i = 0; i < layer->output_size; i++) {
-            output_vector[i] += layer->biases[i];
-        }
-
-        // iii) Apply the activation function
-        apply_activation(output_vector, layer->output_size, layer->activation);
-
-        // iv) Compute loss derivative with respect to output
-        compute_loss_derivative(loss_function, output_vector, expected_values, errors, layer->output_size);
-
-        // v) Calculate deltas (error * derivative of activation)
-        apply_derivative(output_vector, layer->output_size, layer->activation); // Get derivatives
-        for (int i = 0; i < layer->output_size; i++) {
-            deltas[i] = errors[i] * output_vector[i]; // Multiply error by derivative
-        }
-
-        // vi) Update weights and biases using the deltas
-        for (int i = 0; i < layer->output_size; i++) {
-            for (int j = 0; j < layer->input_size; j++) {
-                layer->weights[i][j] -= learning_rate * deltas[i] * input_vector[j];
-            }
-            layer->biases[i] -= learning_rate * deltas[i];
-        }
-
-        if (iter % 100 == 0) {
-            error = compute_loss(loss_function, output_vector, expected_values, layer->output_size);
-            printf("Iteration %u: Loss = %f\n", iter, error);
-        }
-    }
-
-    free(output_vector);
-    free(deltas);
-    free(errors);
-}
-
 
 // Normalize data by dividing each element base on the max value
 void normalize_data(double *input_vector, double *output_vector, int LEN) {
@@ -367,132 +136,6 @@ void random_weight_init_1D(double *output_vector, uint32_t LEN) {
     srand(2);
     for (int i = 0; i < LEN; i++) {
         output_vector[i] = ((double)rand() / RAND_MAX);
-    }
-}
-
-void backpropagation(NeuralNetwork *nn, double *input_vector, double *expected_values, double learning_rate) {
-    int i, j, k;
-
-    forward_pass(nn, input_vector);
-
-    // Matrix for error terms and gradients
-    double **deltas = (double **)malloc(nn->num_layers * sizeof(double *));
-    for (i = 0; i < nn->num_layers; i++) {
-        deltas[i] = (double *)malloc(nn->layers[i].output_size * sizeof(double));
-    }
-
-    // Error for the output layer
-    Layer *output_layer = &nn->layers[nn->num_layers - 1];
-    for (i = 0; i < output_layer->output_size; i++) {
-        double output_value = nn->output_vector[i];
-         // Cross-entropy loss gradient
-        deltas[nn->num_layers - 1][i] = output_value - expected_values[i]; 
-    }
-
-    // Backpropagate through each hidden layer
-    for (i = nn->num_layers - 2; i >= 0; i--) {
-        Layer *current_layer = &nn->layers[i];
-        Layer *next_layer = &nn->layers[i + 1];
-
-        // Calculate the error for the current layer
-        for (j = 0; j < current_layer->output_size; j++) {
-            double delta_sum = 0.0;
-            for (k = 0; k < next_layer->output_size; k++) {
-                delta_sum += deltas[i + 1][k] * next_layer->weights[k][j];
-            }
-            deltas[i][j] = delta_sum;
-        }
-
-        // Derivative of the activation function
-        apply_derivative(deltas[i], current_layer->output_size, current_layer->derivative);
-    }
-
-    // Update weights and biases for each layer
-    for (i = 0; i < nn->num_layers; i++) {
-        Layer *current_layer = &nn->layers[i];
-
-        // Update weights
-        for (j = 0; j < current_layer->output_size; j++) {
-            for (k = 0; k < current_layer->input_size; k++) {
-                current_layer->weights[j][k] -= learning_rate * deltas[i][j] * input_vector[k];
-            }
-        }
-
-        // Update biases
-        for (j = 0; j < current_layer->output_size; j++) {
-            current_layer->biases[j] -= learning_rate * deltas[i][j];
-        }
-    }
-
-    for (i = 0; i < nn->num_layers; i++) {
-        free(deltas[i]);
-    }
-    free(deltas);
-}
-
-/**
- * Performs a forward pass through a deep neural network with multiple layers.
- * This function computes the output of the network given an input vector, a list of layers, and their sizes.
- * 
- * @param input_vector A pointer to the input data vector.
- * @param input_size The size of the input vector (number of features).
- * @param output_vector A pointer to the vector where the final output of the network will be stored.
- * @param output_size The size of the output vector (number of output neurons).
- * @param layers A pointer to an array of Layer structs representing each layer of the network.
- * @param num_layers The total number of layers in the network.
- */
-void deep_nn(double *input_vector, int input_size,
-             double *output_vector, int output_size, 
-             Layer *layers, int num_layers) {
-
-    double *current_input = input_vector;  // Input to the first layer is the input_vector
-    double *current_output = NULL;         // Temporary storage for each layer's output
-
-    for (int layer_idx = 0; layer_idx < num_layers; layer_idx++) {
-        Layer *current_layer = &layers[layer_idx];
-        current_output = (double *)malloc(current_layer->output_size * sizeof(double));
-
-        // Perform matrix-vector multiplication
-        matrix_vector_multiplication(current_input, current_layer->input_size, current_output, current_layer->output_size, current_layer->weights);
-
-        // Add biases and apply activation function
-        for (int i = 0; i < current_layer->output_size; i++) {
-            current_output[i] += current_layer->biases[i]; // Adding bias
-
-            // Apply activation function
-            switch (current_layer->activation) {
-                case RELU:
-                    current_output[i] = fmax(0.0, current_output[i]);  // ReLU activation
-                    break;
-                case SIGMOID:
-                    current_output[i] = 1.0 / (1.0 + exp(-current_output[i])); // Sigmoid activation
-                    break;
-                case SOFTMAX:
-                    // Softmax will be applied at the final output layer
-                    break;
-                case NO_ACTIVATION:
-                    // No activation for linear layers
-                    break;
-            }
-        }
-
-        // If it's the last layer, copy the results to output_vector
-        if (layer_idx == num_layers - 1) {
-            for (int i = 0; i < output_size; i++) {
-                output_vector[i] = current_output[i];
-            }
-        } else {
-            // For intermediate layers, pass the current output as the next layer's input
-            current_input = current_output;
-        }
-          // Free memory allocated for current layer's output
-          // My goodness I almost messed up
-        free(current_output);
-    }
-
-    // If the final layer uses softmax, apply it to the final output
-    if (layers[num_layers - 1].activation == SOFTMAX) {
-        softmax(output_vector, output_vector, output_size);
     }
 }
 
@@ -693,4 +336,422 @@ void update_weights(Optimizer *optimizer, double *weights, double *gradients, in
             }
         }
     }
+}
+
+/**
+ * Performs brute-force optimization of weights and biases for a specific layer in a neural network.
+ * This function systematically explores slight perturbations of the weights and biases to minimize the 
+ * difference between the predicted output and the expected values. It evaluates the impact of both 
+ * increasing and decreasing each weight and bias by a specified learning rate.
+ * 
+ * This brute-force method is characterized by its exhaustive search approach, making it suitable 
+ * for low-dimensional problems where the computational load is manageable. It is particularly useful 
+ * in scenarios where gradient information is unreliable or unavailable, and it can aid in debugging 
+ * or quick prototyping by revealing how specific weights and biases influence the model's output.
+ *
+ * @param input_vector A pointer to the input data vector.
+ * @param expected_values A pointer to the expected output values for the given input.
+ * @param learning_rate The step size used for perturbing weights and biases during optimization.
+ * @param iterations The number of iterations to perform while searching for optimal parameters.
+ * @param layer A pointer to the Layer struct representing the layer to optimize.
+ */
+
+/**
+ * Performs a forward pass through a deep neural network with n layers.
+ * This function computes the output of the network given an input vector, a list of layers, and their sizes.
+ * 
+ * @param nn Pointer to the NeuralNetwork structure that contains the layers, weights, biases, and activation functions.
+ * @param input_vector Pointer to the input data vector, which represents the X input features to the network.
+ * 
+ * Process:
+ * 1. Iterates through each layer of the neural network.
+ * 2. For each layer:
+ *    - Computes the weighted sum of inputs by performing matrix-vector multiplication.
+ *    - Adds biases to the result.
+ *    - Applies the specified activation function (e.g., RELU, SIGMOID, SOFTMAX).
+ * 3. Passes the resulting output to the next layer as the input.
+ * 4. Stores the final output of the network in the `nn->output_vector`.
+ * 5. If the output layer uses the SOFTMAX activation function, it applies the Softmax function to the final output.
+ * 
+ * @note Ensure that the NeuralNetwork struct is properly initialized before invoking this function, i mean, its obvious.
+ */
+// Brute force learning to find a better weight for a specific layer
+void bruteforce_learning(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer) {
+    double *output_vector = (double *)malloc(layer->output_size * sizeof(double));
+    if (!output_vector) {
+        fprintf(stderr, "Memory allocation failed for output_vector\n");
+        exit(EXIT_FAILURE);
+    }
+
+    double *best_weights = (double *)malloc(layer->input_size * sizeof(double));
+    double *current_weights = (double *)malloc(layer->input_size * sizeof(double));
+    double *best_biases = (double *)malloc(layer->output_size * sizeof(double));
+    double *current_biases = (double *)malloc(layer->output_size * sizeof(double));
+    if (!best_weights || !current_weights || !best_biases || !current_biases) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Initialize best weights and biases
+    for (int i = 0; i < layer->output_size; i++) {
+        best_biases[i] = layer->biases[i];
+        for (int j = 0; j < layer->input_size; j++) {
+            best_weights[j] = layer->weights[i][j];
+        }
+    }
+
+    for (uint32_t iter = 0; iter < iterations; iter++) {
+        // We're going to try perturbations in weights and biases
+        double min_error = DBL_MAX;  // Start with a very high minimum error
+
+        for (int i = 0; i < layer->output_size; i++) {
+            for (int j = 0; j < layer->input_size; j++) {
+                // Save current weight and bias
+                current_weights[j] = layer->weights[i][j];
+            }
+            // Save current bias
+            current_biases[i] = layer->biases[i];
+        }
+
+        // Testing perturbations for weights and biases
+        for (int i = 0; i < layer->output_size; i++) {
+            for (int j = 0; j < layer->input_size; j++) {
+                // Testing weight increment
+                layer->weights[i][j] = current_weights[j] + learning_rate;
+                matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
+                apply_activation(output_vector, layer->output_size, layer->activation);
+                double error_up = compute_loss(layer->loss_func, output_vector, expected_values, layer->output_size);
+
+                // Testing weight decrement
+                layer->weights[i][j] = current_weights[j] - learning_rate;
+                matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
+                apply_activation(output_vector, layer->output_size, layer->activation);
+                double error_down = compute_loss(layer->loss_func, output_vector, expected_values, layer->output_size);
+
+                // Choose the best weight
+                if (error_down < min_error) {
+                    min_error = error_down;
+                    best_weights[j] = current_weights[j] - learning_rate;
+                } else if (error_up < min_error) {
+                    min_error = error_up;
+                    best_weights[j] = current_weights[j] + learning_rate;
+                } else {
+                    best_weights[j] = current_weights[j]; // Restore to current if no better found
+                }
+
+                // Restore the weight after testing
+                layer->weights[i][j] = current_weights[j];
+            }
+
+            // Bias perturbation
+            double best_bias = current_biases[i];
+            layer->biases[i] = current_biases[i] + learning_rate;
+            matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
+            apply_activation(output_vector, layer->output_size, layer->activation);
+            double error_up_bias = compute_loss(layer->loss_func, output_vector, expected_values, layer->output_size);
+
+            layer->biases[i] = current_biases[i] - learning_rate;
+            matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
+            apply_activation(output_vector, layer->output_size, layer->activation);
+            double error_down_bias = compute_loss(layer->loss_func, output_vector, expected_values, layer->output_size);
+
+            // Choose the best bias
+            if (error_down_bias < min_error) {
+                min_error = error_down_bias;
+                best_bias = current_biases[i] - learning_rate;
+            } else if (error_up_bias < min_error) {
+                min_error = error_up_bias;
+                best_bias = current_biases[i] + learning_rate;
+            }
+
+            // Update the best biases found
+            layer->biases[i] = best_bias;
+        }
+
+        // Apply the best weights found
+        for (int i = 0; i < layer->output_size; i++) {
+            for (int j = 0; j < layer->input_size; j++) {
+                layer->weights[i][j] = best_weights[j];
+            }
+        }
+
+        printf("Iteration %u: Minimum Error = %f\n", iter, min_error);
+    }
+
+    free(output_vector);
+    free(best_weights);
+    free(current_weights);
+    free(best_biases);
+    free(current_biases);
+}
+
+void forward_pass(NeuralNetwork *nn, double *input_vector) {
+    double *current_input = input_vector;
+    double *current_output = NULL;
+
+    for (int layer_idx = 0; layer_idx < nn->num_layers; layer_idx++) {
+        Layer *layer = &nn->layers[layer_idx];
+        current_output = (double *)malloc(layer->output_size * sizeof(double));
+
+        matrix_vector_multiplication(current_input, layer->input_size, current_output, layer->output_size, layer->weights);
+
+        for (int i = 0; i < layer->output_size; i++) {
+            current_output[i] += layer->biases[i];
+            printf("Value %i output: %f\n", i, current_output[i]);
+            switch (layer->activation) {
+                case RELU:
+                    current_output[i] = fmax(0.0, current_output[i]);
+                    break;
+                case SIGMOID:
+                    current_output[i] = 1.0 / (1.0 + exp(-current_output[i]));
+                    break;
+                case SOFTMAX:
+                    // Softmax will be applied at the output layer
+                    break;
+                case NO_ACTIVATION:
+                    // No activation
+                    break;
+            }
+        }
+
+        if (layer_idx == nn->num_layers - 1) {
+            for (int i = 0; i < layer->output_size; i++) {
+                nn->output_vector[i] = current_output[i];
+            }
+        } else {
+            current_input = current_output;
+        }
+
+        free(current_output);
+    }
+
+    if (nn->layers[nn->num_layers - 1].activation == SOFTMAX) {
+        softmax(nn->output_vector, nn->output_vector, nn->layers[nn->num_layers - 1].output_size);
+    }
+}
+
+/**
+ * Performs gradient descent optimization JUST for a single layer of a neural network.
+ * This function updates the weights and biases of the layer by minimizing the loss 
+ * between the predicted output and the expected values over a specified number of iterations.
+ * 
+ * @param input_vector A pointer to the input data vector for the current training instance.
+ * @param expected_values A pointer to the expected output values (ground truth) for the input vector.
+ * @param learning_rate The rate at which the weights and biases are updated during training.
+ * @param iterations The number of iterations (or epochs) to perform the gradient descent optimization.
+ * @param layer A pointer to the Layer structure containing the weights, biases, and activation function.
+ * @param loss_function The loss function to be used for calculating the error during optimization.
+ */
+
+void gradient_descent(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer, LossFunction loss_function) {
+    double *output_vector = (double *)malloc(layer->output_size * sizeof(double));
+    double *deltas = (double *)malloc(layer->output_size * sizeof(double));
+    double *errors = (double *)malloc(layer->output_size * sizeof(double));
+
+    if (!output_vector || !deltas || !errors) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    double error;
+
+    for (uint32_t iter = 0; iter < iterations; iter++) {
+        // i) Forward pass
+        matrix_vector_multiplication(input_vector, layer->input_size, output_vector, layer->output_size, layer->weights);
+
+        // ii) Adding bias
+        for (int i = 0; i < layer->output_size; i++) {
+            output_vector[i] += layer->biases[i];
+        }
+
+        // iii) Apply the activation function
+        apply_activation(output_vector, layer->output_size, layer->activation);
+
+        // iv) Compute loss derivative with respect to output
+        compute_loss_derivative(loss_function, output_vector, expected_values, errors, layer->output_size);
+
+        // v) Calculate deltas (error * derivative of activation)
+        apply_derivative(output_vector, layer->output_size, layer->activation); // Get derivatives
+        for (int i = 0; i < layer->output_size; i++) {
+            deltas[i] = errors[i] * output_vector[i]; // Multiply error by derivative
+        }
+
+        // vi) Update weights and biases using the deltas
+        for (int i = 0; i < layer->output_size; i++) {
+            for (int j = 0; j < layer->input_size; j++) {
+                layer->weights[i][j] -= learning_rate * deltas[i] * input_vector[j];
+            }
+            layer->biases[i] -= learning_rate * deltas[i];
+        }
+
+        if (iter % 100 == 0) {
+            error = compute_loss(loss_function, output_vector, expected_values, layer->output_size);
+            printf("Iteration %u: Loss = %f\n", iter, error);
+        }
+    }
+
+    free(output_vector);
+    free(deltas);
+    free(errors);
+}
+
+/**
+ * Performs backpropagation through a deep neural network.
+ * This function computes the gradients for weights and biases based on the 
+ * loss derivative and updates the parameters using the specified optimizer and regularizer.
+ * 
+ * @param nn A pointer to the NeuralNetwork structure containing the layers, weights, 
+ *           biases, and output vector of the network.
+ * @param input_vector A pointer to the input data vector for the current training instance.
+ * @param expected_values A pointer to the expected output values (ground truth) for the input vector.
+ * @param learning_rate The rate at which the weights are updated during training.
+ * @param optimizer A pointer to the Optimizer structure specifying the optimization strategy 
+ *                  to be used for updating weights.
+ * @param regularizer A pointer to the Regularizer structure to apply regularization 
+ *                    techniques, if any, during the weight update.
+ */
+
+void backpropagation(NeuralNetwork *nn, double *input_vector, double *expected_values, double learning_rate, Optimizer *optimizer, Regularizer *regularizer) {
+    // Perform forward pass through the network
+    forward_pass(nn, input_vector);
+
+    // Allocate space for error terms (deltas) and gradients
+    double **deltas = (double **)malloc(nn->num_layers * sizeof(double *));
+    if (!deltas) {
+        fprintf(stderr, "Memory allocation failed for deltas\n");
+        return;
+    }
+
+    for (int i = 0; i < nn->num_layers; i++) {
+        deltas[i] = (double *)malloc(nn->layers[i].output_size * sizeof(double));
+        if (!deltas[i]) {
+            fprintf(stderr, "Memory allocation failed for deltas[%d]\n", i);
+            for (int j = 0; j < i; j++) {
+                free(deltas[j]);
+            }
+            free(deltas);
+            return;
+        }
+    }
+
+    // Backpropagation starts with calculating the error at the output layer
+    Layer *output_layer = &nn->layers[nn->num_layers - 1];
+    
+    // Loss derivative calculation (output layer)
+    compute_loss_derivative(output_layer->loss_func, nn->output_vector, expected_values, deltas[nn->num_layers - 1], output_layer->output_size);
+
+    // Backpropagate errors for hidden layers
+    for (int i = nn->num_layers - 2; i >= 0; i--) {
+        Layer *current_layer = &nn->layers[i];
+        Layer *next_layer = &nn->layers[i + 1];
+
+        // Error term for the current layer
+        for (int j = 0; j < current_layer->output_size; j++) {
+            double weighted_error_sum = 0.0; // More descriptive variable name
+            for (int k = 0; k < next_layer->output_size; k++) {
+                weighted_error_sum += deltas[i + 1][k] * next_layer->weights[k][j];
+            }
+            deltas[i][j] = weighted_error_sum;
+        }
+
+        // Apply the derivative of the activation function
+        apply_derivative(deltas[i], current_layer->output_size, current_layer->derivative);
+    }
+
+    // Update weights and biases for each layer using the optimizer and regularizer
+    for (int i = 0; i < nn->num_layers; i++) {
+        Layer *current_layer = &nn->layers[i];
+         //  Input from previous layer or network input
+        double *input_to_layer = (i == 0) ? input_vector : nn->layers[i - 1].output_vector;
+
+        // Update weights for each neuron
+        for (int j = 0; j < current_layer->output_size; j++) {
+            for (int k = 0; k < current_layer->input_size; k++) {
+                // Gradient: delta * input
+                double gradient = deltas[i][j] * input_to_layer[k];
+
+                // Apply regularization if needed
+                if (regularizer->reg_type == L2) {
+                    gradient += regularizer->lambda * current_layer->weights[j][k];
+                } else if (regularizer->reg_type == L1) {
+                    gradient += regularizer->lambda * ((current_layer->weights[j][k] > 0) ? 1 : -1);
+                }
+
+                // Weights are updated using the current optimizer
+                update_weights(optimizer, &current_layer->weights[j][k], &gradient, 1, regularizer);
+            }
+
+            // Update bias
+            double bias_gradient = deltas[i][j];
+            update_weights(optimizer, &current_layer->biases[j], &bias_gradient, 1, NULL);
+        }
+    }
+
+    for (int i = 0; i < nn->num_layers; i++) {
+        free(deltas[i]);
+    }
+    free(deltas);
+}
+
+/**
+ * Performs a forward pass through a deep neural network with multiple layers.
+ * This function computes the output of the network given an input vector, a list of layers, and their sizes.
+ * 
+ * @param input_vector A pointer to the input data vector.
+ * @param input_size The size of the input vector (number of features).
+ * @param output_vector A pointer to the vector where the final output of the network will be stored.
+ * @param output_size The size of the output vector (number of output neurons).
+ * @param layers A pointer to an array of Layer structs representing each layer of the network.
+ * @param num_layers The total number of layers in the network.
+ */
+
+void deep_nn(const double *input_vector, int input_size,
+             double *output_vector, int output_size, 
+             Layer *layers, int num_layers) {
+
+    // Parameter validation
+    if (num_layers <= 0 || input_size <= 0 || output_size <= 0) {
+        fprintf(stderr, "Invalid parameters: num_layers=%d, input_size=%d, output_size=%d\n",
+                num_layers, input_size, output_size);
+        return;
+    }
+
+    double *output_of_current_layer = (double *)malloc(layers[num_layers - 1].output_size * sizeof(double));
+    if (!output_of_current_layer) {
+        fprintf(stderr, "Memory allocation failed for output_of_current_layer\n");
+        return;
+    }
+
+    const double *input_to_next_layer = input_vector;
+
+    // Forward pass through the layers of the neural network
+    for (int layer_idx = 0; layer_idx < num_layers; layer_idx++) {
+        Layer *current_layer = &layers[layer_idx];
+
+        // Matrix-vector multiplication to compute linear transformation
+        matrix_vector_multiplication(input_to_next_layer, current_layer->input_size,
+                                     output_of_current_layer, current_layer->output_size,
+                                     current_layer->weights);
+
+        // Apply biases and activation function in order to introduce non-linearity
+        for (int i = 0; i < current_layer->output_size; i++) {
+            double z = output_of_current_layer[i] + current_layer->biases[i];
+            apply_activation(&output_of_current_layer[i], 1, current_layer->activation);
+        }
+
+        // The final layer is copied to the output vector
+        if (layer_idx == num_layers - 1) {
+            memcpy(output_vector, output_of_current_layer, output_size * sizeof(double));
+        } else {
+            // Prepare for next layer
+            input_to_next_layer = output_of_current_layer; 
+        }
+    }
+
+    // Apply softmax for multi-class classification (PENDING)
+    if (layers[num_layers - 1].activation == SOFTMAX) {
+        softmax(output_vector, output_vector, output_size);
+    }
+
+    free(output_of_current_layer); 
 }

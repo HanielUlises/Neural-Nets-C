@@ -85,20 +85,22 @@ typedef enum {
 
 // Layer structure to encapsulate the weights, biases, and activation function
 typedef struct {
-    int input_size;        // Number of inputs for the layer
-    int output_size;       // Number of outputs for the layer (neurons)
-    double **weights;      // Weight matrix for the layer
-    double *biases;        // Bias vector for the layer
-    Activation activation; // Activation function used in the layer
-    Derivative derivative; // Derivative function used in backpropagation
-    LossFunction loss_func;
+    int input_size;            // Number of inputs for the layer
+    int output_size;           // Number of outputs for the layer (neurons)
+    double **weights;          // Weight matrix for the layer
+    double *biases;            // Bias vector for the layer
+    double *input_vector;      // Pointer to the input vector for the layer
+    double *output_vector;     // Pointer to the output vector for the layer
+    Activation activation;      // Activation function used in the layer
+    Derivative derivative;      // Derivative function used in backpropagation
+    LossFunction loss_func;     // Loss function used for the layer
 } Layer;
 
-// Neural Network structure, contains an array of layers
 typedef struct {
-    int num_layers;        // Total number of layers in the network
-    Layer *layers;         // Pointer to an array of layers
-    double *output_vector; // Final output of the network
+    int num_layers;            // Total number of layers in the network
+    Layer *layers;             // Pointer to an array of layers
+    double *output_vector;     // Final output of the network
+    double learning_rate;      // Learning rate for the network
 } NeuralNetwork;
 
 // Neural network layer creation
