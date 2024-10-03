@@ -9,10 +9,10 @@ double multiple_in_single_out(double* input, double* weight, int length);
 void single_in_multiple_out(double scalar, double* w_vect, double* out_vect, int length);
 
 // Computes the output vector from an input vector and a matrix of weights.
-void multiple_in_multiple_out(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double **weight_matrix);
+void multiple_in_multiple_out(double *input_vector, int size, double *output_vector, int output_size, double **weight_matrix);
 
 // Matrix-vector multiplication
-void matrix_vector_multiplication(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, double **weight_matrix);
+void matrix_vector_multiplication(double *input_vector, int input_size, double *output_vector, int output_size, double **weight_matrix);
 
 // Matrix-matrix multiplication
 void matrix_matrix_multiplication(double **A, double **B, double **result, int rows_A, int cols_A, int cols_B);

@@ -615,7 +615,7 @@ void backpropagation(NeuralNetwork *nn, double *input_vector, double *expected_v
     // Perform forward pass through the network
     forward_pass(nn, input_vector);
 
-    // Allocate space for error terms (deltas) and gradients
+    // Matrix for term errors
     double **deltas = (double **)malloc(nn->num_layers * sizeof(double *));
     if (!deltas) {
         fprintf(stderr, "Memory allocation failed for deltas\n");
@@ -647,10 +647,11 @@ void backpropagation(NeuralNetwork *nn, double *input_vector, double *expected_v
 
         // Error term for the current layer
         for (int j = 0; j < current_layer->output_size; j++) {
-            double weighted_error_sum = 0.0; // More descriptive variable name
+            double weighted_error_sum = 0.0;
             for (int k = 0; k < next_layer->output_size; k++) {
                 weighted_error_sum += deltas[i + 1][k] * next_layer->weights[k][j];
             }
+            // Populating the matrix of deltas
             deltas[i][j] = weighted_error_sum;
         }
 
@@ -671,6 +672,7 @@ void backpropagation(NeuralNetwork *nn, double *input_vector, double *expected_v
                 double gradient = deltas[i][j] * input_to_layer[k];
 
                 // Apply regularization if needed
+                // Might explain regularization later
                 if (regularizer->reg_type == L2) {
                     gradient += regularizer->lambda * current_layer->weights[j][k];
                 } else if (regularizer->reg_type == L1) {
@@ -705,7 +707,7 @@ void backpropagation(NeuralNetwork *nn, double *input_vector, double *expected_v
  * @param num_layers The total number of layers in the network.
  */
 
-void deep_nn(const double *input_vector, int input_size,
+void deep_nn(double *input_vector, int input_size,
              double *output_vector, int output_size, 
              Layer *layers, int num_layers) {
 
@@ -722,7 +724,7 @@ void deep_nn(const double *input_vector, int input_size,
         return;
     }
 
-    const double *input_to_next_layer = input_vector;
+    double *input_to_next_layer = input_vector;
 
     // Forward pass through the layers of the neural network
     for (int layer_idx = 0; layer_idx < num_layers; layer_idx++) {

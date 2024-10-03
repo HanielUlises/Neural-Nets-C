@@ -121,7 +121,7 @@ void bruteforce_learning(double *input_vector, double *expected_values, double l
 void gradient_descent(double *input_vector, double *expected_values, double learning_rate, uint32_t iterations, Layer *layer, LossFunction loss_function);
 
 // Backpropagation to compute gradients and adjust weights
-void backpropagation(NeuralNetwork *nn, double *input_vector, double *expected_values, double learning_rate);
+void backpropagation(NeuralNetwork *nn, double *input_vector, double *expected_values, double learning_rate, Optimizer *optimizer, Regularizer *regularizer);
 
 // Data normalization
 void normalize_data(double *input_vector, double *output_vector, int LEN);
@@ -146,7 +146,7 @@ double compute_loss(LossFunction loss_function, double *predicted, double *actua
 void compute_loss_derivative(LossFunction loss_function, double *predicted, double *actual, double *derivative_out, int size);
 
 // Deep neural network forward pass
-void deep_nn(double *input_vector, int input_size, 
+void deep_nn(double *input_vector, int input_size,
              double *output_vector, int output_size, 
              Layer *layers, int num_layers);
 
