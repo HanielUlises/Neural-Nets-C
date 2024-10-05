@@ -163,7 +163,21 @@ void softmax(double *input_vector, double *output_vector, int length) {
 }
 
 void softmax_derivative(double *input_vector, double *output_vector, int length) {
-    // placeholder    
+    double *softmax_output = (double *)malloc(length * sizeof(double));
+    softmax(input_vector, softmax_output, length);
+
+    for (int i = 0; i < length; i++) {
+        output_vector[i] = 0.0;
+        for (int j = 0; j < length; j++) {
+            if (i == j) {
+                output_vector[i] += softmax_output[i] * (1 - softmax_output[i]);
+            } else {
+                output_vector[i] -= softmax_output[i] * softmax_output[j];
+            }
+        }
+    }
+
+    free(softmax_output);
 }
 
 // ReLU activation function
