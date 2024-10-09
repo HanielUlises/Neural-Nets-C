@@ -54,6 +54,7 @@ typedef enum {
 typedef enum {
     RELU_P,
     SIGMOID_P,
+    TANH_P,
     SOFTMAX_P,
     NO_DERIVATIVE
 } Derivative;
@@ -79,7 +80,8 @@ typedef struct {
 typedef enum {
     RELU,
     SIGMOID,
-    SOFTMAX,
+    TANH,
+    SOFTMAX,         // Typically used for classification tasks in the output layer
     NO_ACTIVATION 
 } Activation;
 

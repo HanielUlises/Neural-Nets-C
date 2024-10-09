@@ -7,7 +7,6 @@ Layer create_layer(int input_size, int output_size, Activation activation) {
     layer.output_size = output_size;
     layer.activation = activation;
 
-    // Allocate memory for weights and biases
     layer.weights = (double **)malloc(output_size * sizeof(double *));
     for (int i = 0; i < output_size; i++) {
         layer.weights[i] = (double *)malloc(input_size * sizeof(double));
@@ -78,6 +77,9 @@ static void apply_activation(double *output_vector, int size, Activation activat
                 break;
             case SIGMOID:
                 output_vector[i] = 1.0 / (1.0 + exp(-output_vector[i]));
+                break;
+            case TANH: 
+                output_vector[i] = tanh(output_vector[i]);
                 break;
             case SOFTMAX:
                 break;
@@ -198,6 +200,7 @@ void sigmoid(double *input_vector, double *output_vector, int length) {
     for (int i = 0; i < length; i++) {
         output_vector[i] = 1.0 / (1.0 + exp(-input_vector[i]));
     }
+
 }
 
 // Softmax function derivative for optimization
@@ -207,7 +210,15 @@ void sigmoid_derivative(double *input_vector, double *output_vector, int length)
     }
 }
 
-static void apply_derivative(double *output_vector, int size, Derivative derivative){
+void tanh_derivative(double *input_vector, double *output_vector, int size) {
+    for (int i = 0; i < size; i++) {
+        double tanh_value = tanh(input_vector[i]);
+        output_vector[i] = 1.0 - tanh_value * tanh_value;
+    }
+}
+
+
+static void apply_derivative(double *output_vector, int size, Derivative derivative) {
     switch (derivative) {
         case RELU_P:
             relu_derivative(output_vector, output_vector, size);
@@ -215,11 +226,13 @@ static void apply_derivative(double *output_vector, int size, Derivative derivat
         case SIGMOID_P:
             sigmoid_derivative(output_vector, output_vector, size);
             break;
+        case TANH_P: 
+            tanh_derivative(output_vector, output_vector, size);
+            break;
         case SOFTMAX_P:
             softmax_derivative(output_vector, output_vector, size);
             break;
         case NO_DERIVATIVE:
-            // Do nothing
             break;
     }
 }

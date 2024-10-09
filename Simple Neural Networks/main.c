@@ -6,27 +6,26 @@ void gsd(double inputs[][2], double outputs[], int num_samples) {
         fprintf(stderr, "Number of samples must be greater than zero.\n");
         return;
     }
-    
+
     // XOR-like samples
     for (int i = 0; i < num_samples; i++) {
         // Alternating 0 and 1
-        inputs[i][0] = (double)(i % 2); 
-        inputs[i][1] = (double)((i / 2) % 2); 
+        inputs[i][0] = (double)(i % 2);
+        inputs[i][1] = (double)((i / 2) % 2);
         // XOR output
-        outputs[i] = (inputs[i][0] != inputs[i][1]) ? 1.0 : 0.0; 
+        outputs[i] = (inputs[i][0] != inputs[i][1]) ? 1.0 : 0.0;
     }
 }
 
 int main() {
-    int layer_sizes[] = {2, 3, 1};  // Input layer with 2 neurons, 1 hidden layer with 3 neurons, and output layer with 1 neuron
+    // Input layer with 2 neurons, hidden layer with 3 neurons, and output layer with 1 neuron
+    int layer_sizes[] = {2, 3, 1};  
     Activation activations[] = {SIGMOID, SIGMOID, SIGMOID};  
 
-    // Neural network with 2 hidden layers
     NeuralNetwork nn = create_neural_network(3, layer_sizes, activations);
 
-    // Weight init
-    for (int i = 0; i < 3; i++) {
-        random_weight_initialization(layer_sizes[i], layer_sizes[i + 1], nn.layers[i].weights);
+    for (int i = 0; i < 2; i++) { 
+        random_weight_initialization(layer_sizes[i + 1], layer_sizes[i], nn.layers[i].weights); 
     }
 
     // Synthetic data for training (4 samples for XOR)
@@ -37,8 +36,12 @@ int main() {
     // Hyperparameters
     double learning_rate = 0.1;
     uint32_t iterations = 10000;
+
     // L2 regularization with lambda = 0.01
-    Regularizer regularizer = {L2, 0.01}; 
+    Regularizer regularizer = {L2, 0.01};
+
+    // Create the optimizer (SGD in this case)
+    Optimizer optimizer = create_optimizer(SGD, learning_rate, 0.9, 0.9, 0.999, 1e-8);
 
     // Training loop
     for (int iter = 0; iter < iterations; iter++) {
@@ -47,7 +50,7 @@ int main() {
             forward_pass(&nn, inputs[sample]);
 
             double loss = compute_loss(MEAN_SQUARED_ERROR, nn.output_vector, &outputs[sample], 1);
-            backpropagation(&nn, inputs[sample], &outputs[sample], learning_rate);
+            backpropagation(&nn, inputs[sample], &outputs[sample], learning_rate, &optimizer, &regularizer);
 
             if (iter % 1000 == 0) {
                 printf("Iteration: %d, Sample: %d, Loss: %f\n", iter, sample, loss);
