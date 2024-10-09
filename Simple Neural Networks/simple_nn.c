@@ -745,7 +745,8 @@ void deep_nn(double *input_vector, int input_size,
         return;
     }
 
-    double *output_of_current_layer = (double *)malloc(layers[num_layers - 1].output_size * sizeof(double));
+    // Allocate memory for the output of the current layer
+    double *output_of_current_layer = (double *)malloc(layers[0].output_size * sizeof(double)); // Initial allocation for the first layer
     if (!output_of_current_layer) {
         fprintf(stderr, "Memory allocation failed for output_of_current_layer\n");
         return;
@@ -753,33 +754,45 @@ void deep_nn(double *input_vector, int input_size,
 
     double *input_to_next_layer = input_vector;
 
-    // Forward pass through the layers of the neural network
+    // Forward pass through each layer of the neural network
     for (int layer_idx = 0; layer_idx < num_layers; layer_idx++) {
         Layer *current_layer = &layers[layer_idx];
 
-        // Matrix-vector multiplication to compute linear transformation
+        // Adjust allocation if the output size of the current layer differs
+        if (layer_idx > 0) {
+            output_of_current_layer = (double *)realloc(output_of_current_layer, current_layer->output_size * sizeof(double));
+            if (!output_of_current_layer) {
+                fprintf(stderr, "Memory allocation failed during realloc for layer %d\n", layer_idx);
+                return;
+            }
+        }
+
+        // Matrix-vector multiplication (Linear transformation)
         matrix_vector_multiplication(input_to_next_layer, current_layer->input_size,
                                      output_of_current_layer, current_layer->output_size,
                                      current_layer->weights);
 
-        // Apply biases and activation function in order to introduce non-linearity
+        // Add biases and apply activation function
         for (int i = 0; i < current_layer->output_size; i++) {
-            double z = output_of_current_layer[i] + current_layer->biases[i];
-            apply_activation(&output_of_current_layer[i], 1, current_layer->activation);
+            double z = output_of_current_layer[i] + current_layer->biases[i]; 
+            output_of_current_layer[i] = z; 
         }
 
-        // The final layer is copied to the output vector
+        // Apply the activation function to the entire layer output
+        apply_activation(output_of_current_layer, current_layer->output_size, current_layer->activation);
+
+        // If it's the last layer, we copy the result to the output vector
         if (layer_idx == num_layers - 1) {
             memcpy(output_vector, output_of_current_layer, output_size * sizeof(double));
-        } else {
-            // Prepare for next layer
-            input_to_next_layer = output_of_current_layer; 
-        }
-    }
 
-    // Apply softmax for multi-class classification (PENDING)
-    if (layers[num_layers - 1].activation == SOFTMAX) {
-        softmax(output_vector, output_vector, output_size);
+            // If the final activation is softmax, we are doing multiclass classification
+            if (current_layer->activation == SOFTMAX) {
+                softmax(output_vector, output_vector, output_size);
+            }
+        } else {
+            // Prepare for the next layer
+            input_to_next_layer = output_of_current_layer;
+        }
     }
 
     free(output_of_current_layer); 
