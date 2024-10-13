@@ -4,7 +4,6 @@
 #include <math.h>
 #include <string.h>
 
-// Function to compute the softmax activation
 /**
  * @brief Computes the softmax activation for a given input vector.
  *
@@ -35,7 +34,7 @@
 void softmax(double *input_vector, double *output_vector, int length) {
     double max_val = input_vector[0];
     
-    // We ind the maximum value for numerical stability
+    // Find the maximum value for numerical stability
     for (int i = 1; i < length; i++) {
         if (input_vector[i] > max_val) {
             max_val = input_vector[i];
@@ -54,7 +53,19 @@ void softmax(double *input_vector, double *output_vector, int length) {
     }
 }
 
-// Function to compute cross-entropy loss
+/**
+ * @brief Computes the cross-entropy loss.
+ *
+ * The cross-entropy loss is commonly used in multi-class classification problems.
+ * It measures the difference between the predicted probabilities (softmax output) 
+ * and the actual one-hot encoded class labels.
+ *
+ * @param predicted A pointer to the predicted probabilities (softmax output).
+ * @param actual A pointer to the one-hot encoded actual class labels.
+ * @param size The number of classes.
+ * 
+ * @return The cross-entropy loss value.
+ */
 double cross_entropy_loss(double *predicted, double *actual, int size) {
     double loss = 0.0;
     for (int i = 0; i < size; i++) {
@@ -65,10 +76,22 @@ double cross_entropy_loss(double *predicted, double *actual, int size) {
     return loss;
 }
 
-// Backpropagation for multi-class classification using cross-entropy loss
+/**
+ * @brief Performs backpropagation for multi-class classification.
+ *
+ * This function propagates the error backward through the neural network
+ * and updates the weights based on the gradients computed from the cross-entropy
+ * loss and softmax output.
+ *
+ * @param nn A pointer to the neural network structure.
+ * @param input_vector A pointer to the input vector.
+ * @param expected_values A pointer to the expected (true) class labels in one-hot encoding.
+ * @param learning_rate The learning rate for weight updates.
+ * @param optimizer A pointer to the optimizer configuration.
+ * @param regularizer A pointer to the regularizer configuration.
+ */
 void backpropagation_multi_class(NeuralNetwork *nn, double *input_vector, double *expected_values, 
                                  double learning_rate, Optimizer *optimizer, Regularizer *regularizer) {
-    // Perform forward pass to compute outputs
     double *predicted_output = (double *)malloc(nn->layers[nn->num_layers - 1].output_size * sizeof(double));
     deep_nn(input_vector, nn->layers[0].input_size, predicted_output, nn->layers[nn->num_layers - 1].output_size, nn->layers, nn->num_layers);
 
@@ -86,71 +109,87 @@ void backpropagation_multi_class(NeuralNetwork *nn, double *input_vector, double
         double *prev_layer_output = (layer_idx == 0) ? input_vector : nn->layers[layer_idx - 1].output_vector;
         
         // Calculate the gradients for weights and biases
-        double *gradients = (double *)malloc(current_layer->output_size * current_layer->input_size * sizeof(double));
-        for (int j = 0; j < current_layer->output_size; j++) {
-            for (int k = 0; k < current_layer->input_size; k++) {
-                gradients[j * current_layer->input_size + k] = loss_gradient[j] * prev_layer_output[k];
-            }
-        }
+        double *weight_gradient = (double *)malloc(current_layer->output_size * current_layer->input_size * sizeof(double));
+        update_weights_multi_class(optimizer, current_layer->weights, weight_gradient, current_layer->input_size * current_layer->output_size, regularizer);
 
-        // Update the weights and biases
-        update_weights_multi_class(optimizer, current_layer->weights[0], gradients, current_layer->input_size * current_layer->output_size, regularizer);
-
-        // Update the biases (simple gradient descent)
-        for (int j = 0; j < current_layer->output_size; j++) {
-            current_layer->biases[j] -= learning_rate * loss_gradient[j]; 
-        }
-
-        // Calculate loss gradient for the previous layer if not the input layer
-        if (layer_idx > 0) {
-            double *next_layer_gradient = (double *)malloc(current_layer->input_size * sizeof(double));
+        // Update weights and biases
+        for (int i = 0; i < current_layer->output_size; i++) {
             for (int j = 0; j < current_layer->input_size; j++) {
-                next_layer_gradient[j] = 0.0;
-                for (int k = 0; k < current_layer->output_size; k++) {
-                     // Sum of gradients
-                    next_layer_gradient[j] += loss_gradient[k] * current_layer->weights[k][j];
-                }
+                current_layer->weights[i * current_layer->input_size + j] -= learning_rate * weight_gradient[i * current_layer->input_size + j];
             }
-
-            // Apply the derivative of the activation function for the current layer
-            apply_derivative(next_layer_gradient, current_layer->input_size, current_layer->derivative);
-
-            // Copy the next layer's gradient to the loss gradient for the next iteration
-            free(loss_gradient);
-            loss_gradient = next_layer_gradient;
-        } else {
-            free(loss_gradient);
+            current_layer->biases[i] -= learning_rate * loss_gradient[i];
         }
-        free(gradients);
+        free(weight_gradient);
     }
-
     free(predicted_output);
+    free(loss_gradient);
 }
 
-// Update weights for multi-class classification
-void update_weights_multi_class(Optimizer *optimizer, double *weights, double *gradients, 
-                                int length, Regularizer *regularizer) {
-    // Update weights based on optimizer
-    if (optimizer->type == SGD) {
-        for (int i = 0; i < length; i++) {
-            weights[i] -= optimizer->learning_rate * gradients[i]; // Simple SGD update
+/**
+ * @brief Computes the accuracy for multi-class classification.
+ *
+ * This function compares the predicted class probabilities to the true one-hot
+ * encoded labels and returns the proportion of correct predictions.
+ *
+ * @param predicted A pointer to the predicted probabilities (softmax output).
+ * @param actual A pointer to the actual class labels (one-hot encoded).
+ * @param size The number of classes.
+ * 
+ * @return The accuracy as a double value.
+ */
+double compute_accuracy(double *predicted, double *actual, int size) {
+    int predicted_class_idx = 0;
+    int actual_class_idx = 0;
+    
+    // Find the index of the maximum predicted probability (the predicted class)
+    for (int i = 1; i < size; i++) {
+        if (predicted[i] > predicted[predicted_class_idx]) {
+            predicted_class_idx = i;
         }
-    } else if (optimizer->type == ADAM) {
-        // Pending
-    }
-    // Handle regularization if applicable
-    if (regularizer->reg_type == L2) {
-        for (int i = 0; i < length; i++) {
-            // L2 regularization
-            weights[i] -= optimizer->learning_rate * regularizer->lambda * weights[i]; 
+        if (actual[i] > actual[actual_class_idx]) {
+            actual_class_idx = i;
         }
     }
+
+    // Return 1 if the predicted class is the actual class, otherwise 0
+    return (predicted_class_idx == actual_class_idx) ? 1.0 : 0.0;
 }
 
-// Compute the derivative of cross-entropy loss
-void compute_cross_entropy_derivative(double *predicted, double *actual, double *derivative_out, int size) {
+/**
+ * @brief Converts predicted softmax output to a one-hot encoded vector.
+ *
+ * This function takes the predicted probabilities and sets the maximum probability
+ * index to 1, while all other indices are set to 0, effectively producing a one-hot encoded vector.
+ *
+ * @param predicted A pointer to the predicted probabilities (softmax output).
+ * @param output A pointer to the one-hot encoded output vector.
+ * @param size The number of classes.
+ */
+void convert_to_one_hot(double *predicted, double *output, int size) {
+    int max_index = 0;
+    for (int i = 1; i < size; i++) {
+        if (predicted[i] > predicted[max_index]) {
+            max_index = i;
+        }
+    }
+
+    // Set the max_index to 1, all others to 0
     for (int i = 0; i < size; i++) {
-        // dL/dy = y_pred - y_true
-        derivative_out[i] = predicted[i] - actual[i]; 
+        output[i] = (i == max_index) ? 1.0 : 0.0;
+    }
+}
+
+/**
+ * @brief Displays the predicted class probabilities for a multi-class classification problem.
+ *
+ * This function prints the predicted probabilities (softmax output) for each class.
+ *
+ * @param predicted A pointer to the predicted probabilities (softmax output).
+ * @param size The number of classes.
+ */
+void display_predicted_probabilities(double *predicted, int size) {
+    printf("Predicted class probabilities:\n");
+    for (int i = 0; i < size; i++) {
+        printf("Class %d: %f\n", i, predicted[i]);
     }
 }

@@ -81,7 +81,7 @@ typedef enum {
     RELU,
     SIGMOID,
     TANH,
-    SOFTMAX,         // Typically used for classification tasks in the output layer
+    SOFTMAX,         
     NO_ACTIVATION 
 } Activation;
 
