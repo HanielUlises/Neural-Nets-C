@@ -6,7 +6,7 @@ This repository contains implementations and experiments with neural networks in
 
 - Supports multiple neural network architectures, including feedforward and deep neural networks.
 - Supports different optimizers (SGD, Momentum, Adam).
-- Offers several activation functions (ReLU, Sigmoid, Softmax).
+- Offers several activation functions (ReLU, Sigmoid, TanH).
 - Includes loss functions and regularization techniques.
 - Linear algebra utilities for matrix and vector operations.
 
