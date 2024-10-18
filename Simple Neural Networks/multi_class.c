@@ -90,40 +90,119 @@ double cross_entropy_loss(double *predicted, double *actual, int size) {
  * @param optimizer A pointer to the optimizer configuration.
  * @param regularizer A pointer to the regularizer configuration.
  */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+
 void backpropagation_multi_class(NeuralNetwork *nn, double *input_vector, double *expected_values, 
                                  double learning_rate, Optimizer *optimizer, Regularizer *regularizer) {
-    double *predicted_output = (double *)malloc(nn->layers[nn->num_layers - 1].output_size * sizeof(double));
-    deep_nn(input_vector, nn->layers[0].input_size, predicted_output, nn->layers[nn->num_layers - 1].output_size, nn->layers, nn->num_layers);
+    int output_size = nn->layers[nn->num_layers - 1].output_size;
+    double *predicted_output = (double *)malloc(output_size * sizeof(double));
+    if (!predicted_output) {
+        fprintf(stderr, "Memory allocation failed for predicted_output\n");
+        return;
+    }
 
-    // Compute the loss
-    double loss = cross_entropy_loss(predicted_output, expected_values, nn->layers[nn->num_layers - 1].output_size);
+    // Network's prediction
+    deep_nn(input_vector, nn->layers[0].input_size, predicted_output, output_size, nn->layers, nn->num_layers);
+
+    // Loss calculation
+    double loss = cross_entropy_loss(predicted_output, expected_values, output_size);
     printf("Loss: %f\n", loss);
 
-    // Compute the gradient of the loss with respect to the output
-    double *loss_gradient = (double *)malloc(nn->layers[nn->num_layers - 1].output_size * sizeof(double));
-    compute_cross_entropy_derivative(predicted_output, expected_values, loss_gradient, nn->layers[nn->num_layers - 1].output_size);
+    // Gradient of the loss with respect to the output
+    double *loss_gradient = (double *)malloc(output_size * sizeof(double));
+    if (!loss_gradient) {
+        fprintf(stderr, "Memory allocation failed for loss_gradient\n");
+        free(predicted_output);
+        return; 
+    }
+    compute_cross_entropy_derivative(predicted_output, expected_values, loss_gradient, output_size);
 
     // Backpropagate the error through each layer
     for (int layer_idx = nn->num_layers - 1; layer_idx >= 0; layer_idx--) {
         Layer *current_layer = &nn->layers[layer_idx];
         double *prev_layer_output = (layer_idx == 0) ? input_vector : nn->layers[layer_idx - 1].output_vector;
-        
-        // Calculate the gradients for weights and biases
-        double *weight_gradient = (double *)malloc(current_layer->output_size * current_layer->input_size * sizeof(double));
-        update_weights_multi_class(optimizer, current_layer->weights, weight_gradient, current_layer->input_size * current_layer->output_size, regularizer);
 
-        // Update weights and biases
-        for (int i = 0; i < current_layer->output_size; i++) {
-            for (int j = 0; j < current_layer->input_size; j++) {
-                current_layer->weights[i * current_layer->input_size + j] -= learning_rate * weight_gradient[i * current_layer->input_size + j];
-            }
-            current_layer->biases[i] -= learning_rate * loss_gradient[i];
+        int input_size = current_layer->input_size;
+        int current_output_size = current_layer->output_size;
+
+        // Calculate gradients for the current layer's weights and biases
+        double *weight_gradient = (double *)calloc(current_output_size * input_size, sizeof(double));
+        double *bias_gradient = (double *)calloc(current_output_size, sizeof(double));
+        double *prev_loss_gradient = (double *)malloc(input_size * sizeof(double));
+
+        if (!weight_gradient || !bias_gradient || !prev_loss_gradient) {
+            fprintf(stderr, "Memory allocation failed in weight/bias gradient calculations\n");
+            free(predicted_output);
+            free(loss_gradient);
+            free(weight_gradient);
+            free(bias_gradient);
+            free(prev_loss_gradient);
+            return; 
         }
+
+        // Compute weight and bias gradients
+        for (int i = 0; i < current_output_size; i++) {
+            for (int j = 0; j < input_size; j++) {
+                weight_gradient[i * input_size + j] = loss_gradient[i] * prev_layer_output[j];
+            }
+            bias_gradient[i] = loss_gradient[i];
+        }
+
+        // Backpropagate the error to the previous layer (for next iteration)
+        if (layer_idx > 0) {
+            double *activation_derivative = (double *)malloc(current_output_size * sizeof(double));
+            if (!activation_derivative) {
+                fprintf(stderr, "Memory allocation failed for activation_derivative\n");
+                free(predicted_output);
+                free(loss_gradient);
+                free(weight_gradient);
+                free(bias_gradient);
+                free(prev_loss_gradient);
+                return;
+            }
+            
+            // Apply activation derivative (e.g., softmax_derivative)
+            apply_derivative(current_layer->output_vector, current_output_size, current_layer->derivative);
+
+            for (int i = 0; i < input_size; i++) {
+                prev_loss_gradient[i] = 0.0;
+                for (int j = 0; j < current_output_size; j++) {
+                    // Ensure weights are accessed correctly
+                    prev_loss_gradient[i] += current_layer->weights[j][i] * loss_gradient[j] * activation_derivative[j];
+                }
+            }
+
+            free(activation_derivative);
+        }
+
+        // Update weights and biases using the optimizer
+        update_weights_multi_class(optimizer, current_layer->weights, weight_gradient, input_size * current_output_size, regularizer);
+
+        // Update biases
+        for (int i = 0; i < current_output_size; i++) {
+            current_layer->biases[i] -= learning_rate * bias_gradient[i];
+        }
+
+        // Prepare for the next layer
+        memcpy(loss_gradient, prev_loss_gradient, input_size * sizeof(double));
+
         free(weight_gradient);
+        free(bias_gradient);
+        free(prev_loss_gradient);
     }
+
     free(predicted_output);
     free(loss_gradient);
 }
+
 
 /**
  * @brief Computes the accuracy for multi-class classification.
