@@ -8,7 +8,53 @@
 #include <stdio.h>
 #include <math.h>
 
+#define MULTICLASS_LAYER
+
 #include "simple_nn.h"
+
+#ifdef MULTICLASS_LAYER
+
+// Loss function types for multi-class classification
+typedef enum {
+    CROSS_ENTROPY
+} LossFunction;
+
+// Derivative function types for multi-class layers
+typedef enum {
+    SOFTMAX_P
+} Derivative;
+
+// Layer structure for multi-class classification
+typedef struct {
+    int input_size;            // Number of inputs for the layer
+    int output_size;           // Number of outputs for the layer (neurons)
+    double **weights;          // Weight matrix for the layer
+    double *biases;            // Bias vector for the layer
+    double *input_vector;      // Pointer to the input vector for the layer
+    double *output_vector;     // Pointer to the output vector for the layer
+    Activation activation;      // Activation function used in the layer
+    Derivative derivative;      // Derivative function for backpropagation
+    LossFunction loss_func;    // Loss function used for the layer
+} Layer; 
+
+// MultiClassNeuralNetwork structure
+typedef struct {
+    int num_layers;            // Total number of layers in the network
+    Layer *layers;             // Pointer to an array of layers
+    double *output_vector;     // Final output of the network
+    double learning_rate;      // Learning rate for the network
+} NeuralNetwork;
+
+#endif // MULTICLASS_LAYER
+
+// Backpropagation for multi-class classification
+void backpropagation_multi_class(NeuralNetwork *nn, double *input_vector, double *expected_values, 
+                                 double learning_rate, Optimizer *optimizer, Regularizer *regularizer);
+
+// Softmax and Cross-Entropy Loss Functions for Multi-Class
+void softmax(double *input_vector, double *output_vector, int length);
+double cross_entropy_loss(double *predicted, double *actual, int size);
+void compute_cross_entropy_derivative(double *predicted, double *actual, double *derivative_out, int size);
 
 /**
  * Computes the softmax activation function for multi-class classification.
@@ -148,5 +194,6 @@ int predicted_class(double *predicted, int num_classes);
  * @return The index of the class that is 1 in the one-hot encoded vector.
  */
 int actual_class(double *actual, int num_classes);
+
 
 #endif // MULTI_CLASS_NN_H

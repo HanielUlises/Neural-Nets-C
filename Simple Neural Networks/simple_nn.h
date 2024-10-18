@@ -9,12 +9,14 @@
 #include <math.h>
 #include <float.h>
 #include <limits.h>
- 
+
 #include "lin_alg.h"
 
 static double *momentum_velocity = NULL; // Velocity for momentum-based methods
 static double *m_t = NULL; // First moment estimate for Adam
 static double *v_t = NULL; // Second moment estimate for Adam
+
+// #define STANDARD_LAYER
 
 // Enum for learning rate scheduling
 typedef enum {
@@ -85,7 +87,9 @@ typedef enum {
     NO_ACTIVATION 
 } Activation;
 
-// Layer structure to encapsulate the weights, biases, and activation function
+#ifdef STANDARD_LAYER
+
+// Layer structure for standard (non-multi-class) neural network
 typedef struct {
     int input_size;            // Number of inputs for the layer
     int output_size;           // Number of outputs for the layer (neurons)
@@ -93,9 +97,9 @@ typedef struct {
     double *biases;            // Bias vector for the layer
     double *input_vector;      // Pointer to the input vector for the layer
     double *output_vector;     // Pointer to the output vector for the layer
-    Activation activation;      // Activation function used in the layer
-    Derivative derivative;      // Derivative function used in backpropagation
-    LossFunction loss_func;     // Loss function used for the layer
+    Activation activation;     // Activation function used in the layer
+    Derivative derivative;     // Derivative function used in backpropagation
+    LossFunction loss_func;    // Loss function used for the layer
 } Layer;
 
 typedef struct {
@@ -104,6 +108,8 @@ typedef struct {
     double *output_vector;     // Final output of the network
     double learning_rate;      // Learning rate for the network
 } NeuralNetwork;
+
+#endif 
 
 // Neural network layer creation
 Layer create_layer(int input_size, int output_size, Activation activation);
@@ -155,7 +161,6 @@ void deep_nn(double *input_vector, int input_size,
 // Optimization 
 void update_weights(Optimizer *optimizer, double *weights, double *gradients, int length, Regularizer *regularizer);
 Optimizer create_optimizer(OptimizerType type, double learning_rate, double momentum, double beta1, double beta2, double epsilon);
-
 
 static void apply_activation(double *output_vector, int size, Activation activation);
 static void apply_derivative(double *output_vector, int size, Derivative derivative);
