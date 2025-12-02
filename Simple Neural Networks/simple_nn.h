@@ -16,7 +16,7 @@ static double *momentum_velocity = NULL; // Velocity for momentum-based methods
 static double *m_t = NULL; // First moment estimate for Adam
 static double *v_t = NULL; // Second moment estimate for Adam
 
-// #define STANDARD_LAYER
+#define STANDARD_LAYER
 
 // Enum for learning rate scheduling
 typedef enum {

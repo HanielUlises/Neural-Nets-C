@@ -746,7 +746,7 @@ void deep_nn(double *input_vector, int input_size,
     }
 
     // Allocate memory for the output of the current layer
-    double *output_of_current_layer = (double *)malloc(layers[0].output_size * sizeof(double)); // Initial allocation for the first layer
+    double *output_of_current_layer = (double *)malloc(layers[0].output_size * sizeof(double)); 
     if (!output_of_current_layer) {
         fprintf(stderr, "Memory allocation failed for output_of_current_layer\n");
         return;
