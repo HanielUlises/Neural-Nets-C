@@ -77,6 +77,16 @@ double cross_entropy_loss(double *predicted, double *actual, int size) {
 }
 
 
+/**
+ * @brief Extracts the index of the active class from a one-hot vector.
+ *
+ * The function assumes a valid one-hot encoding where exactly one element
+ * equals 1.0. If this assumption is violated, -1 is returned.
+ *
+ * @param actual        One-hot encoded label vector.
+ * @param num_classes   Length of the vector.
+ * @return Index of the class, or -1 for invalid encodings.
+ */
 int actual_class(double *actual, int num_classes) {
     for (int i = 0; i < num_classes; i++) {
         if (actual[i] == 1.0) return i;
@@ -84,123 +94,314 @@ int actual_class(double *actual, int num_classes) {
     return -1;
 }
 
+/**
+ * @brief Returns the argmax index from a probability/logit vector.
+ *
+ * This is typically used after a softmax layer to obtain the predicted class.
+ *
+ * @param predicted     Probability or logit vector.
+ * @param num_classes   Length of the vector.
+ * @return Index of the maximal component.
+ */
+int predicted_class(double *predicted, int num_classes) {
+    int max_index = 0;
+    double max_value = predicted[0];
+
+    for (int i = 1; i < num_classes; i++) {
+        if (predicted[i] > max_value) {
+            max_value = predicted[i];
+            max_index = i;
+        }
+    }
+    return max_index;
+}
 
 /**
- * @brief Performs backpropagation for multi-class classification.
+ * @brief Constructs a confusion matrix over a batch.
  *
- * This function propagates the error backward through the neural network
- * and updates the weights based on the gradients computed from the cross-entropy
- * loss and softmax output.
+ * The predicted and actual arrays are assumed to be laid out in
+ * row-major form: sample 0 occupies [0 … num_classes-1], sample 1
+ * occupies [num_classes … 2*num_classes-1], etc.
  *
- * @param nn A pointer to the neural network structure.
- * @param input_vector A pointer to the input vector.
- * @param expected_values A pointer to the expected (true) class labels in one-hot encoding.
- * @param learning_rate The learning rate for weight updates.
- * @param optimizer A pointer to the optimizer configuration.
- * @param regularizer A pointer to the regularizer configuration.
+ * @param predicted          Predicted probabilities (size × num_classes).
+ * @param actual             One-hot labels (size × num_classes).
+ * @param num_classes        Number of classes.
+ * @param size               Number of samples.
+ * @param confusion_matrix   Pre-allocated matrix[num_classes][num_classes].
  */
+void compute_confusion_matrix(double *predicted, double *actual,
+                              int num_classes, int size,
+                              int **confusion_matrix)
+{
+    // Matrix reset
+    for (int i = 0; i < num_classes; i++)
+        for (int j = 0; j < num_classes; j++)
+            confusion_matrix[i][j] = 0;
 
-void backpropagation_multi_class(NeuralNetwork *nn, double *input_vector, double *expected_values, 
-                                 double learning_rate, Optimizer *optimizer, Regularizer *regularizer) {
-    int output_size = nn->layers[nn->num_layers - 1].output_size;
-    double *predicted_output = (double *)malloc(output_size * sizeof(double));
-    if (!predicted_output) {
-        fprintf(stderr, "Memory allocation failed for predicted_output\n");
+    // Streaming accumulation of classification outcomes
+    for (int s = 0; s < size; s++) {
+        int p = predicted_class(&predicted[s * num_classes], num_classes);
+        int a = actual_class(&actual[s * num_classes], num_classes);
+
+        if (p >= 0 && a >= 0)
+            confusion_matrix[a][p] += 1;
+    }
+}
+
+/**
+ * @brief Gradient of cross-entropy with softmax logits.
+ *
+ * For softmax-with-cross-entropy, the backward signal reduces to:
+ *   dL/dz = predicted − actual
+ * which is both computationally and numerically optimal.
+ *
+ * @param predicted        Predicted probabilities.
+ * @param actual           One-hot encoded targets.
+ * @param derivative_out   Output gradient vector.
+ * @param size             Vector length.
+ */
+void compute_cross_entropy_derivative(double *predicted, double *actual,
+                                      double *derivative_out, int size)
+{
+    for (int i = 0; i < size; i++)
+        derivative_out[i] = predicted[i] - actual[i];
+}
+
+/**
+ * @brief Adapter: update a layer's weights stored as double** using the existing update_weights helper.
+ *
+ * This routine flattens a row-major (weights[row][col]) representation into a contiguous
+ * temporary buffer only when necessary, then delegates to the generic update_weights()
+ * so optimizer logic (SGD/Adam/etc.) is centralized.
+ *
+ * @param optimizer  Optimizer configuration.
+ * @param weights    Layer weights as double** (rows == out, cols == in).
+ * @param gradients  Gradients as a flat buffer length == rows*cols.
+ * @param rows       Number of output neurons (rows).
+ * @param cols       Number of input neurons (cols).
+ * @param regularizer Regularizer descriptor or NULL.
+ */
+void update_weights_multi_class(Optimizer *optimizer, double **weights, double *gradients,
+                                int rows, int cols, Regularizer *regularizer)
+{
+    int length = rows * cols;
+
+    /* Try to detect if weights are already contiguous: if weights[0] is non-null and
+       the subsequent rows are laid out immediately after, we can use &weights[0][0].
+       Otherwise we create a temporary flat buffer, update it, and scatter back. */
+    int contiguous = 0;
+    double *flat = NULL;
+
+    if (rows > 0 && cols > 0 && weights[0] != NULL) {
+        // Heuristic: check if &weights[0][0] + length - 1 == &weights[rows-1][cols-1] 
+        double *start = &weights[0][0];
+        double *end_expected = start + (length - 1);
+        double *end_actual = &weights[rows - 1][cols - 1];
+        if (end_actual == end_expected) contiguous = 1;
+    }
+
+    if (contiguous) {
+        flat = &weights[0][0];
+        // delegate to shared updater 
+        update_weights(optimizer, flat, gradients, length, regularizer);
+    } else {
+        flat = (double *)malloc(sizeof(double) * length);
+        if (!flat) {
+            fprintf(stderr, "update_weights_multi_class: allocation failed\n");
+            return;
+        }
+
+        for (int r = 0; r < rows; ++r)
+            for (int c = 0; c < cols; ++c)
+                flat[r * cols + c] = weights[r][c];
+
+        update_weights(optimizer, flat, gradients, length, regularizer);
+
+        for (int r = 0; r < rows; ++r)
+            for (int c = 0; c < cols; ++c)
+                weights[r][c] = flat[r * cols + c];
+
+        free(flat);
+    }
+}
+
+/**
+ * @brief Computes class-level precision across a batch.
+ *
+ * Precision measures how "pure" the predictions for the given class are:
+ *     TP / (TP + FP)
+ *
+ * @param predicted     Predicted probabilities (size × num_classes).
+ * @param actual        One-hot labels (size × num_classes).
+ * @param class_index   Class for which precision is measured.
+ * @param num_classes   Number of classes.
+ * @param size          Number of samples.
+ * @return Precision value in [0,1].
+ */
+double compute_precision(double *predicted, double *actual,
+                         int class_index, int num_classes, int size)
+{
+    int tp = 0, fp = 0;
+
+    for (int i = 0; i < size; i++) {
+        int p = predicted_class(&predicted[i * num_classes], num_classes);
+        int a = actual_class(&actual[i * num_classes], num_classes);
+
+        if (p == class_index && a == class_index) tp++;
+        if (p == class_index && a != class_index) fp++;
+    }
+
+    if (tp + fp == 0) return 0.0;
+    return (double)tp / (tp + fp);
+}
+
+/**
+ * @brief Computes class-level recall across a batch.
+ *
+ * Recall quantifies how comprehensively the class was recovered:
+ *     TP / (TP + FN)
+ *
+ * @param predicted     Predicted probabilities (size × num_classes).
+ * @param actual        One-hot labels (size × num_classes).
+ * @param class_index   Class for which recall is measured.
+ * @param num_classes   Number of classes.
+ * @param size          Number of samples.
+ * @return Recall value in [0,1].
+ */
+double compute_recall(double *predicted, double *actual,
+                      int class_index, int num_classes, int size)
+{
+    int tp = 0, fn = 0;
+
+    for (int i = 0; i < size; i++) {
+        int p = predicted_class(&predicted[i * num_classes], num_classes);
+        int a = actual_class(&actual[i * num_classes], num_classes);
+
+        if (a == class_index && p == class_index) tp++;
+        if (a == class_index && p != class_index) fn++;
+    }
+
+    if (tp + fn == 0) return 0.0;
+    return (double)tp / (tp + fn);
+}
+
+
+/**
+ * @brief Backpropagation for multi-class classification using softmax + cross-entropy.
+ *
+ * Assumptions:
+ * - Final-layer activation is softmax and loss is cross-entropy => dL/dz = predicted - expected.
+ * - Layer weights are stored as weights[row][col] where row indexes output neuron.
+ * - deep_nn populates each layer's output_vector.
+ *
+ * This function computes gradients for a single example (extend to mini-batches by summing gradients).
+ */
+void backpropagation_multi_class(NeuralNetwork *nn, double *input_vector, double *expected_values,
+                                 double learning_rate, Optimizer *optimizer, Regularizer *regularizer)
+{
+    if (!nn || nn->num_layers <= 0) return;
+
+    int L = nn->num_layers;
+    Layer *last = &nn->layers[L - 1];
+    int output_size = last->output_size;
+
+    // Forward: fill per-layer output_vector using provided deep_nn
+    // deep_nn signature: deep_nn(input_vector, input_size, output_vector, output_size, layers, num_layers);
+    deep_nn(input_vector, nn->layers[0].input_size, nn->output_vector, output_size, nn->layers, nn->num_layers);
+
+    // Copy predicted probabilities from network output (assuming nn->output_vector holds final softmax)
+    double *predicted = nn->output_vector;
+
+    // Compute top-layer gradient: dL/dz = predicted - expected
+    double *grad = (double *)malloc(sizeof(double) * output_size);
+    if (!grad) {
+        fprintf(stderr, "backprop: allocation failed\n");
         return;
     }
+    compute_cross_entropy_derivative(predicted, expected_values, grad, output_size);
 
-    // Network's prediction
-    deep_nn(input_vector, nn->layers[0].input_size, predicted_output, output_size, nn->layers, nn->num_layers);
+    // We'll iterate layers backward, keeping track of the gradient w.r.t. each layer's outputs.
+    //   For layer l, grad has length = layers[l].output_size.
+    //   prev_grad is gradient w.r.t. inputs to the current layer (size = input_size).
+    for (int l = L - 1; l >= 0; --l) {
+        Layer *layer = &nn->layers[l];
+        int out_sz = layer->output_size;
+        int in_sz = layer->input_size;
 
-    // Loss calculation
-    double loss = cross_entropy_loss(predicted_output, expected_values, output_size);
-    printf("Loss: %f\n", loss);
+        // prev activation vector (input to current layer)
+        double *act_in = (l == 0) ? input_vector : nn->layers[l - 1].output_vector;
+        double *act_out = layer->output_vector; // post-activation outputs
 
-    // Gradient of the loss with respect to the output
-    double *loss_gradient = (double *)malloc(output_size * sizeof(double));
-    if (!loss_gradient) {
-        fprintf(stderr, "Memory allocation failed for loss_gradient\n");
-        free(predicted_output);
-        return; 
-    }
-    compute_cross_entropy_derivative(predicted_output, expected_values, loss_gradient, output_size);
-
-    // Backpropagate the error through each layer
-    for (int layer_idx = nn->num_layers - 1; layer_idx >= 0; layer_idx--) {
-        Layer *current_layer = &nn->layers[layer_idx];
-        double *prev_layer_output = (layer_idx == 0) ? input_vector : nn->layers[layer_idx - 1].output_vector;
-
-        int input_size = current_layer->input_size;
-        int current_output_size = current_layer->output_size;
-
-        // Calculate gradients for the current layer's weights and biases
-        double *weight_gradient = (double *)calloc(current_output_size * input_size, sizeof(double));
-        double *bias_gradient = (double *)calloc(current_output_size, sizeof(double));
-        double *prev_loss_gradient = (double *)malloc(input_size * sizeof(double));
-
-        if (!weight_gradient || !bias_gradient || !prev_loss_gradient) {
-            fprintf(stderr, "Memory allocation failed in weight/bias gradient calculations\n");
-            free(predicted_output);
-            free(loss_gradient);
-            free(weight_gradient);
-            free(bias_gradient);
-            free(prev_loss_gradient);
-            return; 
+        // weight gradients: dW[i,j] = grad[i] * act_in[j]  (i: output neuron, j: input index)
+        double *weight_gradients = (double *)calloc(out_sz * in_sz, sizeof(double));
+        double *bias_gradients = (double *)calloc(out_sz, sizeof(double));
+        if (!weight_gradients || !bias_gradients) {
+            fprintf(stderr, "backprop: allocation failed for gradients\n");
+            free(weight_gradients);
+            free(bias_gradients);
+            free(grad);
+            return;
         }
 
-        // Compute weight and bias gradients
-        for (int i = 0; i < current_output_size; i++) {
-            for (int j = 0; j < input_size; j++) {
-                weight_gradient[i * input_size + j] = loss_gradient[i] * prev_layer_output[j];
+        for (int i = 0; i < out_sz; ++i) {
+            bias_gradients[i] = grad[i];
+            for (int j = 0; j < in_sz; ++j) {
+                weight_gradients[i * in_sz + j] = grad[i] * act_in[j];
             }
-            bias_gradient[i] = loss_gradient[i];
         }
 
-        // Backpropagate the error to the previous layer (for next iteration)
-        if (layer_idx > 0) {
-            double *activation_derivative = (double *)malloc(current_output_size * sizeof(double));
-            if (!activation_derivative) {
-                fprintf(stderr, "Memory allocation failed for activation_derivative\n");
-                free(predicted_output);
-                free(loss_gradient);
-                free(weight_gradient);
-                free(bias_gradient);
-                free(prev_loss_gradient);
+        update_weights_multi_class(optimizer, layer->weights, weight_gradients, out_sz, in_sz, regularizer);
+        update_weights(optimizer, layer->biases, bias_gradients, out_sz, regularizer);
+
+        // Gradient for previous layer (if any): prev_grad[j] = sum_i W[i][j] * grad[i] * activation_derivative_i
+        if (l > 0) {
+            double *prev_grad = (double *)calloc(in_sz, sizeof(double));
+            if (!prev_grad) {
+                fprintf(stderr, "backprop: allocation failed prev_grad\n");
+                free(weight_gradients);
+                free(bias_gradients);
+                free(grad);
                 return;
             }
-            
-            // Apply activation derivative (e.g., softmax_derivative)
-            apply_derivative(current_layer->output_vector, current_output_size, current_layer->derivative);
 
-            for (int i = 0; i < input_size; i++) {
-                prev_loss_gradient[i] = 0.0;
-                for (int j = 0; j < current_output_size; j++) {
-                    // Ensure weights are accessed correctly
-                    prev_loss_gradient[i] += current_layer->weights[j][i] * loss_gradient[j] * activation_derivative[j];
-                }
+            // compute activation derivative of current layer outputs (dact/dz)
+            double *act_derivative = (double *)malloc(sizeof(double) * out_sz);
+            if (!act_derivative) {
+                fprintf(stderr, "backprop: allocation failed act_derivative\n");
+                free(prev_grad);
+                free(weight_gradients);
+                free(bias_gradients);
+                free(grad);
+                return;
             }
 
-            free(activation_derivative);
+            // apply_derivative modifies provided array in-place according to layer->derivative
+            memcpy(act_derivative, act_out, sizeof(double) * out_sz);
+            apply_derivative(act_derivative, out_sz, layer->derivative);
+
+            for (int j = 0; j < in_sz; ++j) {
+                double acc = 0.0;
+                for (int i = 0; i < out_sz; ++i) {
+                    acc += layer->weights[i][j] * grad[i] * act_derivative[i];
+                }
+                prev_grad[j] = acc;
+            }
+
+            // swap: free old grad and replace with prev_grad for next iteration
+            free(grad);
+            grad = prev_grad;
+
+            free(act_derivative);
+        } else {
+            // no previous layer — finished backprop
+            free(grad);
+            grad = NULL;
         }
 
-        // Update weights and biases using the optimizer
-        update_weights_multi_class(optimizer, current_layer->weights, weight_gradient, input_size * current_output_size, regularizer);
-
-        // Update biases
-        for (int i = 0; i < current_output_size; i++) {
-            current_layer->biases[i] -= learning_rate * bias_gradient[i];
-        }
-
-        // Prepare for the next layer
-        memcpy(loss_gradient, prev_loss_gradient, input_size * sizeof(double));
-
-        free(weight_gradient);
-        free(bias_gradient);
-        free(prev_loss_gradient);
+        free(weight_gradients);
+        free(bias_gradients);
     }
 
-    free(predicted_output);
-    free(loss_gradient);
 }
 
 
@@ -233,6 +434,27 @@ double compute_accuracy(double *predicted, double *actual, int size) {
     // Return 1 if the predicted class is the actual class, otherwise 0
     return (predicted_class_idx == actual_class_idx) ? 1.0 : 0.0;
 }
+
+/**
+ * @brief Batch accuracy: compares argmax of each sample.
+ *
+ * @param predicted  shape: batch_size × num_classes
+ * @param actual     shape: batch_size × num_classes (one-hot)
+ * @param num_classes
+ * @param batch_size
+ * @return fraction correct in [0,1]
+ */
+double compute_accuracy_batch(double *predicted, double *actual, int num_classes, int batch_size)
+{
+    int correct = 0;
+    for (int s = 0; s < batch_size; ++s) {
+        int p = predicted_class(&predicted[s * num_classes], num_classes);
+        int a = actual_class(&actual[s * num_classes], num_classes);
+        if (p >= 0 && a >= 0 && p == a) ++correct;
+    }
+    return (double)correct / (double)batch_size;
+}
+
 
 /**
  * @brief Converts predicted softmax output to a one-hot encoded vector.
