@@ -1,0 +1,25 @@
+{
+  "configurations": [
+    {
+      "name": "linux-gcc-x64",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "/usr/include",
+        "/usr/include/gtk-3.0",
+        "/usr/include/cairo",
+        "/usr/include/pango-1.0",
+        "/usr/include/atk-1.0",
+        "/usr/include/gdk-pixbuf-2.0",
+        "/usr/include/glib-2.0",
+        "/usr/lib/x86_64-linux-gnu/glib-2.0/include",
+        "/usr/include/harfbuzz"
+      ],
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "${default}",
+      "cppStandard": "${default}",
+      "intelliSenseMode": "linux-gcc-x64",
+      "compilerArgs": []
+    }
+  ],
+  "version": 4
+}
