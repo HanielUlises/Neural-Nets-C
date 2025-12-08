@@ -184,45 +184,61 @@ void compute_cross_entropy_derivative(double *predicted, double *actual,
 void update_weights_multi_class(Optimizer *optimizer, double **weights, double *gradients,
                                 int rows, int cols, Regularizer *regularizer)
 {
+    if (rows <= 0 || cols <= 0) return;
     int length = rows * cols;
 
-    /* Try to detect if weights are already contiguous: if weights[0] is non-null and
-       the subsequent rows are laid out immediately after, we can use &weights[0][0].
-       Otherwise we create a temporary flat buffer, update it, and scatter back. */
-    int contiguous = 0;
-    double *flat = NULL;
-
-    if (rows > 0 && cols > 0 && weights[0] != NULL) {
-        // Heuristic: check if &weights[0][0] + length - 1 == &weights[rows-1][cols-1] 
-        double *start = &weights[0][0];
-        double *end_expected = start + (length - 1);
-        double *end_actual = &weights[rows - 1][cols - 1];
-        if (end_actual == end_expected) contiguous = 1;
-    }
-
-    if (contiguous) {
-        flat = &weights[0][0];
-        // delegate to shared updater 
-        update_weights(optimizer, flat, gradients, length, regularizer);
-    } else {
-        flat = (double *)malloc(sizeof(double) * length);
+    if (!weights || !weights[0]) {
+        double *flat = (double *)malloc(sizeof(double) * length);
         if (!flat) {
             fprintf(stderr, "update_weights_multi_class: allocation failed\n");
             return;
         }
-
         for (int r = 0; r < rows; ++r)
             for (int c = 0; c < cols; ++c)
-                flat[r * cols + c] = weights[r][c];
+                flat[r * cols + c] = weights[r] ? weights[r][c] : 0.0;
 
         update_weights(optimizer, flat, gradients, length, regularizer);
 
         for (int r = 0; r < rows; ++r)
             for (int c = 0; c < cols; ++c)
-                weights[r][c] = flat[r * cols + c];
+                if (weights[r]) weights[r][c] = flat[r * cols + c];
 
         free(flat);
+        return;
     }
+
+    int contiguous = 1;
+    for (int r = 0; r < rows; ++r) {
+        if (weights[r] != &weights[0][r * cols]) {
+            contiguous = 0;
+            break;
+        }
+    }
+
+    if (contiguous) {
+        double *flat = &weights[0][0];
+        update_weights(optimizer, flat, gradients, length, regularizer);
+        return;
+    }
+
+    /* Not contiguous: gather, update, scatter */
+    double *flat = (double *)malloc(sizeof(double) * length);
+    if (!flat) {
+        fprintf(stderr, "update_weights_multi_class: allocation failed\n");
+        return;
+    }
+
+    for (int r = 0; r < rows; ++r)
+        for (int c = 0; c < cols; ++c)
+            flat[r * cols + c] = weights[r] ? weights[r][c] : 0.0;
+
+    update_weights(optimizer, flat, gradients, length, regularizer);
+
+    for (int r = 0; r < rows; ++r)
+        for (int c = 0; c < cols; ++c)
+            if (weights[r]) weights[r][c] = flat[r * cols + c];
+
+    free(flat);
 }
 
 /**
